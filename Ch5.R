@@ -136,3 +136,6 @@ model <- lm(lprice ~ lcarat, data=d)
 d$lprice2 <- resid(model)
 mod <- lm(lprice2 ~ lcarat*color, data=d)
 library(effects)
+effectdf <- function(...) {
+  suppressWarnings(as.data.frame(effect(...)))
+}
