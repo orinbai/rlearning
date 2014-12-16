@@ -103,3 +103,36 @@ choro <- choro[order(choro$order),]
 qplot(long, lat, data=choro, group=group, fill=assault, geom='polygon')
 qplot(long, lat, data=choro, group=group, fill=assault/murder, geom='polygon')
 
+## 需要用到 library(plyr) ##
+## ddply(.data, .variables, .func=NULL) 其中： ##
+## .data是默认数据集， .variables是用来做处理的分组变量. .func是对应的函数 ##
+## 下面的例子里，ddply(ia, .(subregion), colwise(mid_range, .(lat, long)))中： ##
+## ia数据框的subregion变量为分组变量（group），使用colwise对所有subregion相同的 ##
+## 数据样本分别求其经纬度的平均值， 该值就是subregion组的平均值。 ##
+## 对应到数据含义中，subregion是郡名， 所以centres其实就是某个郡的中心。  ##
+## ---------------------------------------------------------------------  ##
+## 从ggplot绘图过程中，可以看出同时使用两个数据集做图，那么需要aes中某些变量名一致 ##
+## 测试时添加了几个变量:"lat1, long1, ooo", 根据变量名去掉这些列时，使用了match函数 ##
+## ia[, -match(delete.names, colnames(ia))] ##
+
+library(plyr)
+ia <- map_data('county', 'iowa')
+mid_range <- function(x) {
+  mean(range(x, na.rm=T))
+}
+centres <- ddply(ia, .(subregion), colwise(mid_range, .(lat, long)))
+ggplot(ia, aes(lat, long)) + geom_polygon(aes(group=group), fill=NA, col='gray70') + geom_text(aes(lat1, long1, label=subregion), data=centres, size=3, angle=45)
+
+## 揭示不确定性 ##
+## rbinom(nrow(diamonds), 1, 0.2) 意思是 二项分布中1的概率是0.2 ##
+## d 都使用方式其实等同于 20% 抽样 ##
+
+d <- subset(diamonds, carat<2.5 & rbinom(nrow(diamonds), 1, 0.2) == 1)
+d$lcarat <- log(d$carat)
+d$lprice <- log(d$price)
+model <- lm(lprice ~ lcarat, data=d)
+## 去线性回归残差值为新的Y，其实是指预测值无法被线性关系解释的部分（剔除线性关系后的变量自变量 ##
+## 关系 ##
+d$lprice2 <- resid(model)
+mod <- lm(lprice2 ~ lcarat*color, data=d)
+library(effects)
