@@ -139,3 +139,8 @@ library(effects)
 effectdf <- function(...) {
   suppressWarnings(as.data.frame(effect(...)))
 }
+## color 在mod中的fit，se， 取值区间等参数
+color <- effectdf("color", mod)
+both1 <- effectdf("lcarat:color", mod)
+
+
