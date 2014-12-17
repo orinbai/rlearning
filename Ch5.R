@@ -139,8 +139,66 @@ library(effects)
 effectdf <- function(...) {
   suppressWarnings(as.data.frame(effect(...)))
 }
-## color 在mod中的fit，se， 取值区间等参数
+## color 在mod中的fit，se， 取值区间等参数,表达mod的边际效应
 color <- effectdf("color", mod)
+## lcarat:color交互效应的边际效应
 both1 <- effectdf("lcarat:color", mod)
 
+carat <- effectdf('lcarat', mod, default.levels=50)
+both2 <- effectdf('lcarat:color', mod, default.levels=3)
 
+## 通过数据变换移除明显效应，lcarat 对lprice、lprice2的边际效应的情况。x，y取对数，去除了一部分非线性趋势
+qplot(lcarat, lprice, data=d, col=color)
+## 去除主要线性效应(lm建立的model)
+qplot(lcarat, lprice2, data=d, col=color)
+
+fplot <- ggplot(mapping=aes(y=fit, ymin=lower, ymax=upper)) + ylim(range(both2$lower, both2$upper))
+## color的边际效应 ##
+fplot %+% color + aes(x=color) + geom_point() + geom_errorbar()
+## color在lcarat水平下的条件效应 ##
+fplot %+% both2 + aes(x=color, col=lcarat, group=interaction(color, lcarat)) + geom_errorbar() +
+  geom_line(aes(group= lcarat)) + scale_color_gradient()
+
+## carat的不确定性 ##
+fplot %+% carat + aes(x=lcarat) + geom_smooth(stat='identity')
+
+## 针对color的不同水平，carat的条件效应 ##
+ends <- subset(both1, lcarat=max(lcarat))
+fplot %+% both1 + aes(x=lcarat, col=color) + geom_smooth(stat='identity') + scale_colour_hue() +
+  theme(legend.position="none") + geom_text(aes(label=color, x=lcarat+0.02), ends)
+
+## stat_summary ##
+
+midm <- function(x) {
+  mean(x, trim = 0.5)
+}
+m2 <- ggplot(movies, aes(factor(round(rating)), log10(votes)))
+## 说明stat_summary 的fun.y参数可以接受简单的数学函数，回传一个值给Y ##
+m2 + 
+  stat_summary(aes(colour='trimmed'), fun.y=midm, geom = 'point') +
+  stat_summary(aes(colour = 'raw'), fun.y=mean, geom = 'point') +
+  scale_color_hue("Mean")
+
+## 演示stat_summary 的fun.data可以使用更加复杂的函数，该函数返回一个各元素有名称的向量 ##
+## 这种返回也许可以作为参数传递 ##
+## stat_summary 可以搭配 Hmisc 包中的摘要函数使用 ##
+m <- ggplot(movies, aes(year, rating))
+iqr <- function(x, ...) {
+  qs <- quantile(as.numeric(x), c(0.25, 0.75), na.rm=T)
+  names(qs) <- c('ymin', 'ymax')
+  qs
+}
+m + geom_ribbon()
+m + stat_summary(fun.data='iqr', geom='ribbon')
+
+## 添加图形注解 ##
+## 其实，这些注解也是数据，可以采用逐个添加也可以采用批量添加的模式 ##
+(unemp <- qplot(date, unemploy, data=economics, geom = 'line', xlab='', ylab='No. unemployed (1000s)'))
+presidential <- presidential[-(1:3),]
+yrng <- range(economics$unemploy)
+xrng <- range(economics$date)
+## 这里绘制平行于y轴的直线时，需要将日期转化成数字 ##
+unemp + geom_vline(aes(xintercept=as.numeric(start)), data=presidential)
+unemp + geom_rect(aes(NULL, NULL, xmin=start, xmax=end, fill=party), ymin=yrng[1], ymax=yrng[2], data=presidential, alpha=0.2) + scale_fill_manual(values=c('blue', 'red'))
+
+last_plot() + geom_text(aes(start, yrng[1], label=name),data=presidential, size=3, hjust=0, vjust=0)
