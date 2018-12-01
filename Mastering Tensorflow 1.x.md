@@ -1,8 +1,8 @@
-## Mastering Tensorflow 1.x
+# Mastering Tensorflow 1.x
 
-### Tensorflow 101
+## Tensorflow 101
 
-#### TensorFlow 的三个模型
+### TensorFlow 的三个模型
 
 Tensorflow有三个模型：
 
@@ -25,7 +25,7 @@ hello = tf.constant("Hello, TensorFlow!!")
 print(tfs.run(hello))
 ```
 
-#### Tensors
+#### 张量
 
 Tensors 是基本计算元素，和TensorFlow中的基础数据结构。一般来讲，在学习TensorFlow我们也仅仅需要学习这一个数据结构。Tensors可以通过以下方式创建：
 
@@ -33,7 +33,7 @@ Tensors 是基本计算元素，和TensorFlow中的基础数据结构。一般�
 * 定义占位符，并将值传至Session.run()
 * 通过tf.convert_to_tensor()函数，将诸如标量值、列表和Numpy数组这些Python对象转化
 
-#### Constants
+#### 常数
 
 通过tf.constant()常数赋值tensors，语法如下：
 
@@ -58,7 +58,7 @@ c3 = tf.constant(7.0, tf.float32, name='z')
 run([c1, c2, c3]) : [5, 6.0, 7.0]
 ```
 
-#### Operations
+#### 操作符
 
 TensorFlow 为我们提供了很多可以用于Tensors的操作。操作符通过传递值并将输出赋值给其他tenser定义。
 
@@ -89,6 +89,194 @@ run(op2):  42.0
 | 文本操作符       | tf.string_to_hash_bucket_fast, tf.string_to_hash_bucket_strong, tf.as_string, tf.encode_base64, tf.decode_base64, tf.reduct_join, tf.string_join, tf.string_split, tf.substr, tf.string_to_hash_bucket |
 
 #### 占位符
+
+占位符是先创建tensor然后在运行时再传值，语法如下：
+
+``` python
+tf.placeholder(
+dtype,
+shape=None,
+name=None
+)
+```
+
+```python
+p1 = tf.placeholder(tf.float32)
+p2 = tf.placeholder(tf.float32)
+>>> print("p1: ", p1);print("p2: ", p2)
+('p1: ', <tf.Tensor 'Placeholder:0' shape=<unknown> dtype=float32>)
+('p2: ', <tf.Tensor 'Placeholder_1:0' shape=<unknown> dtype=float32>)
+op4 = p1 * p2
+>>> print("run(op4, {p1:2.0, p2:3.0}): ", tfs.run(op4, {p1:2.0, p2:3.0}))
+('run(op4, {p1:2.0, p2:3.0}): ', 6.0)
+```
+
+也可以使用Python字典——feed_dict——给run()函数传值
+
+```python
+>>> print("run(op4, feed_dict={p1:3.0, p2:4.0}): ", tfs.run(op4, feed_dict={p1:3.0, p2:4.0}))
+('run(op4, feed_dict={p1:3.0, p2:4.0}): ', 12.0)
+```
+
+最后也可以传入向量进行计算
+
+```python
+>>> print("run(op4, feed_dict={p1:[2.0, 3.0, 4.0], p2:[3.0, 4.0, 5.0]}): ", tfs.run(op4, feed_dict={p1:[2.0, 3.0, 4.0], p2:[3.0, 4.0, 5.0]}))
+('run(op4, feed_dict={p1:[2.0, 3.0, 4.0], p2:[3.0, 4.0, 5.0]}): ', array([  6.,  12.,  20.], dtype=float32))
+```
+
+#### 由Python对象来创建Tensor
+
+可以使用tf.convert_to_tensor来由Python对象比如Numpy数组或者列表来创建tensor，其语法如下：
+
+```python
+tf.convert_to_tensor(
+value,
+dtype=None,
+name=None,
+preferred_dtype=None
+)
+```
+
+1. 创建一个0维Tensor
+
+   ```python
+   tf_t = tf.convert_to_tensor(5.0, dtype=tf.float64)
+   >>> print('tf_t: ', tf_t);print('run(tf_t): ', tfs.run(tf_t))
+   ('tf_t: ', <tf.Tensor 'Const:0' shape=() dtype=float64>)
+   ('run(tf_t): ', 5.0)
+   ```
+
+2. 创建一个1-D Tensor
+
+   ```python
+   a1dim = np.array([1,2,3,4,5.99])
+   >>> print("shape of a1dim: ", a1dim.shape)
+   ('shape of a1dim: ', (5,))
+   tf_t = tf.convert_to_tensor(a1dim, dtype=tf.float64)
+   >>> print("tf_t: ", tf_t)
+   ('tf_t: ', <tf.Tensor 'Const_1:0' shape=(5,) dtype=float64>)
+   >>> print("tf_t[0]: ", tf_t[0])
+   ('tf_t[0]: ', <tf.Tensor 'strided_slice:0' shape=() dtype=float64>)
+   >>> print("tf_t[2]: ", tf_t[2])
+   ('tf_t[2]: ', <tf.Tensor 'strided_slice_1:0' shape=() dtype=float64>)
+   >>> print('run(tf_t): \n', tfs.run(tf_t))
+   ('run(tf_t): \n', array([ 1.  ,  2.  ,  3.  ,  4.  ,  5.99]))
+   ```
+
+3. 创建一个2-D Tensor
+
+   ```python
+   a2dim = np.array([(1,2,3,4,5.99),
+                    (2,3,4,5,6.99),
+                    (3,4,5,6,7.99)
+                    ])
+   >>> print('a2dim shape: ', a2dim.shape)
+   ('a2dim shape: ', (3, 5))
+   tf_t = tf.convert_to_tensor(a2dim, dtype=tf.float64)
+   >>> print('tf_t: ', tf_t);print('tf_t[0][0]: ', tf_t[0][0]);print('tf_t[1][2]: ', tf_t[1][2]);print('run(tf_t): ', tfs.run(tf_t))
+   ('tf_t: ', <tf.Tensor 'Const_2:0' shape=(3, 5) dtype=float64>)
+   ('tf_t[0][0]: ', <tf.Tensor 'strided_slice_3:0' shape=() dtype=float64>)
+   ('tf_t[1][2]: ', <tf.Tensor 'strided_slice_5:0' shape=() dtype=float64>)
+   ('run(tf_t): ', array([[ 1.  ,  2.  ,  3.  ,  4.  ,  5.99],
+          [ 2.  ,  3.  ,  4.  ,  5.  ,  6.99],
+          [ 3.  ,  4.  ,  5.  ,  6.  ,  7.99]]))
+   ```
+
+4. 创建一个3-D Tensor
+
+   ```python
+   a3dim = np.array([[[1,2], [3,4]],
+                    [[5,6], [7,8]]
+                    ])
+   tf_t = tf.convert_to_tensor(a3dim)
+   >>> print ('a3dim shape: ', a3dim.shape);print('tf_t: ', tf_t);print('tf_t[0][0][0]: ', tf_t[0][0][0]);print('tf_t[1][1][1]: ', tf_t[1][1][1]);print('run(tf_t): ', tfs.run(tf_t))
+   ('a3dim shape: ', (2, 2, 2))
+   ('tf_t: ', <tf.Tensor 'Const_3:0' shape=(2, 2, 2) dtype=int64>)
+   ('tf_t[0][0][0]: ', <tf.Tensor 'strided_slice_8:0' shape=() dtype=int64>)
+   ('tf_t[1][1][1]: ', <tf.Tensor 'strided_slice_11:0' shape=() dtype=int64>)
+   ('run(tf_t): ', array([[[1, 2],
+           [3, 4]],
+   
+          [[5, 6],
+           [7, 8]]]))
+   ```
+
+#### 变量
+
+在TensorFlow中，变量是能保存在执行过程中被修改的值的张量对象。它与占位符很相似，具体区别如下：
+
+| 占位符(tf.placeholder)                         | 变量(tf.Variable)             |
+| ---------------------------------------------- | ----------------------------- |
+| tf.placeholder定义的是并不随时间改变的输入数据 | tf.Variable的值会随时间变化   |
+| tf.placeholder在定义时并不需要初始值           | tf.Variable在定义时需要初始值 |
+
+在TensorFlow中，可以使用tf.Variable来创建变量。以线性模型为例：
+
+$y = W\times{x} + b$
+
+```python
+w = tf.Variable([.3], tf.float32)
+b = tf.Variable([-.3], tf.float32)
+#x是占位符
+x = tf.placeholder(tf.float32)
+y = w * x + b
+>>> print('w: ', w);print('x: ', x);print('b: ',b);print('y: ',y)
+('w: ', <tf.Variable 'Variable:0' shape=(1,) dtype=float32_ref>)
+('x: ', <tf.Tensor 'Placeholder_2:0' shape=<unknown> dtype=float32>)
+('b: ', <tf.Variable 'Variable_1:0' shape=(1,) dtype=float32_ref>)
+('y: ', <tf.Tensor 'add:0' shape=<unknown> dtype=float32>)
+```
+
+在TensorFlow的session，我们使用变量前，这些变量必须被初始化。有几种初始化变量的方法：
+
+1. 使用他自己的初始化操作符
+
+   ```python
+   tfs.run(w.initializer)
+   ```
+
+2. 使用TensorFlow提供的便捷函数来初始化所有变量
+
+   ```python
+   tfs.run(tf.global_variables_initializer())
+   ```
+
+也可以使用不在run函数中的方式来：
+
+```python
+tf.global_variables_initializer().run()
+```
+
+还可以使用tf.variables_initializer()来初始化一部分变量。
+
+```python
+>>> print('run(y, {x:[1,2,3,4]}): ', tfs.run(y, {x:[1,2,3,4]}))
+('run(y, {x:[1,2,3,4]}): ', array([ 0.        ,  0.30000001,  0.60000002,  0.90000004], dtype=float32))
+```
+
+#### 从库函数中生成tensor
+
+tensor还可以从TensorFlow的库函数中生成，这些tensor可以或者赋值给变量、常数，或者在初始化时提供给其构造器。比如，我们可以生成100个0的向量:
+
+```python
+a = tf.zeros(100,)
+>>> print('a: ', tfs.run(a))
+('a: ', array([ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.], dtype=float32))
+```
+
+TensorFlow 提供了不同的函数类型来在张量定义时将其填充：
+
+* 用相同的值填充所有元素
+* 用序列填充元素
+* 用随机概率分布来填充元素，比如正态分布或者均匀分布
 
 
 
