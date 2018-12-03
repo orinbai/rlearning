@@ -213,7 +213,9 @@ preferred_dtype=None
 
 在TensorFlow中，可以使用tf.Variable来创建变量。以线性模型为例：
 
-$y = W\times{x} + b$
+$$
+y=W\times x + b
+$$
 
 ```python
 w = tf.Variable([.3], tf.float32)
@@ -305,6 +307,224 @@ TensorFlow 提供了不同的函数类型来在张量定义时将其填充：
 | random_gamma(shape, alpha, beta=None, dtype=tf.float32, seed=None, name=None) | 生成制定shape的tensor，使用伽玛分布填充其值：gamma(alpha, beta)。 |
 
 更多细节可以查询：[seed 相关](https://www.tensorflow.org/api_docs/python/tf/set_random_seed) [gamma函数](https://www.tensorflow.org/api_docs/python/tf/random_gamma)
+
+##### 通过tf.get_variable() 获取变量
+
+如果我们对一个已经定义过的变量再定义，那么TensorFlow会抛出异常。因此，我们应该通过tf.get_variable()来替代tf.Variable()。这个函数在变量存在时会返回一个同名的已存在变量，否则创建这个变量。
+
+在分布式TensorFlow中，tf.get_variable()会获得全局变量，如果要获得局部变量要使用tf.get_local_variable()
+
+```python
+w = tf.get_variable(name='w', shape=[1], dtype=tf.float32, initializer=[.3])
+b = tf.get_variable(name='b', shape=[1], dtype=tf.float32, initializer=[-.3])
+```
+
+*书中有误，tf.get_variable() 去获得已存在变量时会报错，需要在变量域内设置reuse=True*
+
+所以，如果要重用已定义变量，那么需要设置tf.variable_scope.reuse_variable()或者设置tf.variable.scope(resue=True)。
+
+### 数据流图或者计算图
+
+数据流图或者计算图是TensorFlow中的基本计算单位，之后我们会称之为计算图。其中，每个节点是一个TensorFlow的操作符(tf.Operation)，每个边是一个在节点间变换的tensor(tf.Tensor)。
+
+TensorFlow中的一段程序基本上就是一个计算图，创建一个计算图，其节点表示变量、常熟、占位符和操作符，然后将其灌入TensorFlow。TensorFlow寻找可以激发或者执行的第一批节点，然后这些节点的激发会带来其他节点的激发，以此类推。
+
+TensorFlow 由一个默认图开始，除非有显示的指定图，否则新节点将被隐式的加入默认图中。我们可以通过一下命令获得默认图：
+
+```python
+graph = tf.get_default_graph()
+```
+
+如果我们要定义三个输入值并将其相加后输出
+$$
+y = x_1 + x_2 + x_3
+$$
+那么其计算图会类似下面的图：
+
+``` mermaid
+graph LR
+var1((x1))-->op((add))
+var2((x2))-->op((add))
+var3((x3))-->op((add))
+op((add))-->var4((y))
+
+
+```
+
+在TensorFlow中，看起来是这样的：
+
+```python
+y = tf.add(x1+x2+x3)
+```
+
+我们创建并执行以下计算图：
+$$
+y = W\times x + b
+$$
+
+```python
+w = tf.Variable([.3], dtype=tf.float32)
+b = tf.Variable([-.3], dtype=tf.float32)
+x = tf.placeholder(dtype=tf.float32)
+y = w*x + b
+output = 0
+with tf.Session() as tfs:
+    tf.global_variables_initializer().run()
+    output = tfs.run(y, {x: [1, 2, 3, 4]})
+2018-12-04 02:30:05.792269: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1306] Adding visible gpu devices: 0
+2018-12-04 02:30:05.981830: I tensorflow/core/common_runtime/gpu/gpu_device.cc:987] Creating TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 3103 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1)
+>>> print("output: ", output)
+('output: ', array([ 0.        ,  0.30000001,  0.60000002,  0.90000004], dtype=float32))
+```
+
+#### 执行顺序与惰性加载
+
+节点按照依赖顺序执行。如果节点a依赖节点b，那么当请求执行b时，a将先于b执行。节点对象当其需要的时候才会被创建和初始化，被成为惰性加载。
+
+当我们需要控制执行顺序时，可以使用tf.Graph.control_dependencies()改变顺序。
+
+```python
+with graph_variable.control_dependencies([c, d]):
+    # other statements here
+```
+
+假设我们有a、b、c、d四个节点，上面的方法将保证在代码块内所有的节点执行都会在c、d执行之后。
+
+#### 通过计算设备（CPU、GPU）运行图
+
+一个图可以被分成多个部分，每个部分可以被指派并在不同的独立设备上进行执行，比如CPU或者GPU。下面命令可以列出能够运行图的设备：
+
+```python
+from tensorflow.python.client import device_lib
+>>> print(device_lib.list_local_devices())
+2018-12-04 03:01:18.691585: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1306] Adding visible gpu devices: 0
+2018-12-04 03:01:18.691977: I tensorflow/core/common_runtime/gpu/gpu_device.cc:987] Creating TensorFlow device (/device:GPU:0 with 3106 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1)
+[name: "/device:CPU:0"
+device_type: "CPU"
+memory_limit: 268435456
+locality {
+}
+incarnation: 10858870713487053697
+, name: "/device:GPU:0"
+device_type: "GPU"
+memory_limit: 3257794560
+locality {
+  bus_id: 1
+}
+incarnation: 4472897408438210799
+physical_device_desc: "device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1"
+]
+```
+
+在TensorFlow中，通过字串 /device:<device_type>:<device_idx>来识别设备。信息中的CPU、GPU就是device_type，0是device_idx(device index)。
+
+无论是几颗CPU都显示一个，因为TensorFlow隐式的会在CPU上进行分布，所以CPU0表示了TensorFlow可以使用的所有CPU资源。当TensorFlow开始运行图时，它将每个图的独立部分运行在不同的线程上，而每个线程也运行在不同的CPU上。我们可以通过改变inter_op_parallelism_threads的值来限制线程的数量。类似的，在独立部分中，操作也有多线程的能力。TensorFlow会把特定的操作多线程化，这部分线程池的数量可以通过intra_op_parallelism_threads的值来改变。
+
+#### 将图节点分配在特定的计算设备上
+
+我们可以通过一个设置对象来打开变量分配记录，设置 log_device_placement 的属性为 true，并将这个config对象传给后续的操作：
+
+```python
+tf.reset_default_graph()
+
+w = tf.Variable([.3], tf.float32)
+b = tf.Variable([-.3], tf.float32)
+x = tf.placeholder(tf.float32)
+y = w * x + b
+
+config = tf.ConfigProto()
+config.log_device_placement=True
+
+with tf.Session(config=config) as tfs:
+    tf.global_variables_initializer().run() #原书代码错误global_variables_initializer是tf的函数
+    print('output: ', tfs.run(y, {x: [1,2,3,4]}))
+... 
+2018-12-04 03:23:02.994866: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1306] Adding visible gpu devices: 0
+2018-12-04 03:23:02.995237: I tensorflow/core/common_runtime/gpu/gpu_device.cc:987] Creating TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 3101 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1)
+Device mapping:
+/job:localhost/replica:0/task:0/device:GPU:0 -> device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1
+2018-12-04 03:23:02.995488: I tensorflow/core/common_runtime/direct_session.cc:298] Device mapping:
+/job:localhost/replica:0/task:0/device:GPU:0 -> device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1
+
+Variable_1: (VariableV2): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.000772: I tensorflow/core/common_runtime/placer.cc:875] Variable_1: (VariableV2)/job:localhost/replica:0/task:0/device:GPU:0
+Variable_1/read: (Identity): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.000835: I tensorflow/core/common_runtime/placer.cc:875] Variable_1/read: (Identity)/job:localhost/replica:0/task:0/device:GPU:0
+Variable_1/Assign: (Assign): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.000866: I tensorflow/core/common_runtime/placer.cc:875] Variable_1/Assign: (Assign)/job:localhost/replica:0/task:0/device:GPU:0
+Variable: (VariableV2): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.000898: I tensorflow/core/common_runtime/placer.cc:875] Variable: (VariableV2)/job:localhost/replica:0/task:0/device:GPU:0
+Variable/read: (Identity): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.000948: I tensorflow/core/common_runtime/placer.cc:875] Variable/read: (Identity)/job:localhost/replica:0/task:0/device:GPU:0
+mul: (Mul): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.000992: I tensorflow/core/common_runtime/placer.cc:875] mul: (Mul)/job:localhost/replica:0/task:0/device:GPU:0
+add: (Add): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.001024: I tensorflow/core/common_runtime/placer.cc:875] add: (Add)/job:localhost/replica:0/task:0/device:GPU:0
+Variable/Assign: (Assign): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.001055: I tensorflow/core/common_runtime/placer.cc:875] Variable/Assign: (Assign)/job:localhost/replica:0/task:0/device:GPU:0
+init: (NoOp): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.001082: I tensorflow/core/common_runtime/placer.cc:875] init: (NoOp)/job:localhost/replica:0/task:0/device:GPU:0
+Placeholder: (Placeholder): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.001113: I tensorflow/core/common_runtime/placer.cc:875] Placeholder: (Placeholder)/job:localhost/replica:0/task:0/device:GPU:0
+Variable_1/initial_value: (Const): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.001141: I tensorflow/core/common_runtime/placer.cc:875] Variable_1/initial_value: (Const)/job:localhost/replica:0/task:0/device:GPU:0
+Variable/initial_value: (Const): /job:localhost/replica:0/task:0/device:GPU:0
+2018-12-04 03:23:03.001169: I tensorflow/core/common_runtime/placer.cc:875] Variable/initial_value: (Const)/job:localhost/replica:0/task:0/device:GPU:0
+('output: ', array([ 0.        ,  0.30000001,  0.60000002,  0.90000004], dtype=float32))
+```
+
+也可以用tf.device来指定设备
+
+```python
+tf.reset_default_graph()
+with tf.device('/device:CPU:0'):
+    w = tf.Variable([.3], tf.float32)
+    b = tf.Variable([-.3], tf.float32)
+    x = tf.placeholder(tf.float32)
+    y = w * x + b
+
+config = tf.ConfigProto()
+config.log_device_placement = True
+with tf.Session(config=config) as tfs:
+    tfs.run(tf.global_variables_initializer())
+    print("output: ", tfs.run(y, {x:[1,2,3,4]}))
+    
+... 
+2018-12-04 03:29:55.710296: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1306] Adding visible gpu devices: 0
+2018-12-04 03:29:55.710689: I tensorflow/core/common_runtime/gpu/gpu_device.cc:987] Creating TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 3103 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1)
+Device mapping:
+/job:localhost/replica:0/task:0/device:GPU:0 -> device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1
+2018-12-04 03:29:55.711002: I tensorflow/core/common_runtime/direct_session.cc:298] Device mapping:
+/job:localhost/replica:0/task:0/device:GPU:0 -> device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1
+
+Variable_1: (VariableV2): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728381: I tensorflow/core/common_runtime/placer.cc:875] Variable_1: (VariableV2)/job:localhost/replica:0/task:0/device:CPU:0
+Variable_1/read: (Identity): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728453: I tensorflow/core/common_runtime/placer.cc:875] Variable_1/read: (Identity)/job:localhost/replica:0/task:0/device:CPU:0
+Variable_1/Assign: (Assign): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728483: I tensorflow/core/common_runtime/placer.cc:875] Variable_1/Assign: (Assign)/job:localhost/replica:0/task:0/device:CPU:0
+Variable: (VariableV2): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728513: I tensorflow/core/common_runtime/placer.cc:875] Variable: (VariableV2)/job:localhost/replica:0/task:0/device:CPU:0
+Variable/read: (Identity): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728540: I tensorflow/core/common_runtime/placer.cc:875] Variable/read: (Identity)/job:localhost/replica:0/task:0/device:CPU:0
+mul: (Mul): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728565: I tensorflow/core/common_runtime/placer.cc:875] mul: (Mul)/job:localhost/replica:0/task:0/device:CPU:0
+add: (Add): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728633: I tensorflow/core/common_runtime/placer.cc:875] add: (Add)/job:localhost/replica:0/task:0/device:CPU:0
+Variable/Assign: (Assign): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728665: I tensorflow/core/common_runtime/placer.cc:875] Variable/Assign: (Assign)/job:localhost/replica:0/task:0/device:CPU:0
+init: (NoOp): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728691: I tensorflow/core/common_runtime/placer.cc:875] init: (NoOp)/job:localhost/replica:0/task:0/device:CPU:0
+Placeholder: (Placeholder): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728719: I tensorflow/core/common_runtime/placer.cc:875] Placeholder: (Placeholder)/job:localhost/replica:0/task:0/device:CPU:0
+Variable_1/initial_value: (Const): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728745: I tensorflow/core/common_runtime/placer.cc:875] Variable_1/initial_value: (Const)/job:localhost/replica:0/task:0/device:CPU:0
+Variable/initial_value: (Const): /job:localhost/replica:0/task:0/device:CPU:0
+2018-12-04 03:29:55.728771: I tensorflow/core/common_runtime/placer.cc:875] Variable/initial_value: (Const)/job:localhost/replica:0/task:0/device:CPU:0
+('output: ', array([ 0.        ,  0.30000001,  0.60000002,  0.90000004], dtype=float32))
+```
+
+
 
 
 
