@@ -60,7 +60,7 @@ run([c1, c2, c3]) : [5, 6.0, 7.0]
 
 #### 操作符
 
-TensorFlow 为我们提供了很多可以用于Tensors的操作。操作符通过传递值并将输出赋值给其他tenser定义。
+TensorFlow 为我们提供了很多可以用于Tensors的操作。操作符通过传递值并将输出赋值给其他tensor定义。
 
 ``` python
 op1 = tf.add(c2, c3)
@@ -277,6 +277,34 @@ TensorFlow 提供了不同的函数类型来在张量定义时将其填充：
 * 用相同的值填充所有元素
 * 用序列填充元素
 * 用随机概率分布来填充元素，比如正态分布或者均匀分布
+
+##### 用相同的值填充tensor元素
+
+| tensor生成函数                                          | 描述                                                         |
+| ------------------------------------------------------- | ------------------------------------------------------------ |
+| zeros(shape, dtype=tf.float32, name=None)               | 根据给定的shape创建tensor，所有元素均为0                     |
+| zeros_like(tensor, dtype=None,name=None, optimize=True) | 创建一个参数中tensor同样shape的tensor，所有元素均为0         |
+| ones(shape, dtype=tf.float32, name=None)                | 创建给定shape的tensor，所有元素均为1                         |
+| ones_like(tensor, dtype=None, name=None, optimize=True) | 同zeros_like                                                 |
+| fill(dims, value, name=None)                            | 根据参数dims创建一个同样shape的tensor，所有元素设定为参数value的值 |
+
+##### 用序列填充tensor元素
+
+| Tensor生成函数                                           | 描述                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------ |
+| lin_space(start, stop, num, name=None)                   | 创建一个tensor，其值是为[start, stop]范围内的num数量的数值。数据类型为start的参数。 |
+| range([start], limit, delta=1, dtype=None, name='range') | 生成一个1-D tensor，其值是在[start, limit]中的数据序列，按照delta的值增加。如果dtype没有指定，则与start相同。如果start被忽略，那么从0开始。 |
+
+##### 使用随机分布填充tensor元素
+
+| Tensor生成函数                                               | 描述                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| random_normal(shape, mean=0.0, stddev=1.0, dtype=tf.float32, seed=None, name=None) | 生成指定shape的tensor，用正态分布填充其值:normal（mean, stddev)。 |
+| truncated_normal(shape, mean=0.0, stddev=1.0, dtype=tf.float32, seed=None, name=None) | 生成指定shape的tensor，使用==截断正态分布==填充其值:normal(mean, stddev)。==截断==是指其值总是小于距均值2个标准差的数字。 |
+| random_uniform(shape, minval=0, maxval=None, dtype=tf.float32, seed=None, name=None) | 生成指定shape的tensor，使用均匀分布填充其值：uniform(minval, maxval) |
+| random_gamma(shape, alpha, beta=None, dtype=tf.float32, seed=None, name=None) | 生成制定shape的tensor，使用伽玛分布填充其值：gamma(alpha, beta)。 |
+
+更多细节可以查询：[seed 相关](https://www.tensorflow.org/api_docs/python/tf/set_random_seed) [gamma函数](https://www.tensorflow.org/api_docs/python/tf/random_gamma)
 
 
 
