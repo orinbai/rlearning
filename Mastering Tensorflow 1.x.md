@@ -524,6 +524,186 @@ Variable/initial_value: (Const): /job:localhost/replica:0/task:0/device:CPU:0
 ('output: ', array([ 0.        ,  0.30000001,  0.60000002,  0.90000004], dtype=float32))
 ```
 
+#### 简单分配规则
+
+``` python
+如果该图之前运行过，那么剩余的节点会分配在之前的设备上;
+之外，如果使用了tf.device()，那么节点会分配在指定的设备上;
+或者如果GPU可用，那么被分配到第一个GPU上;
+如果GPU不可用，那么被分配到CPU上。
+```
+
+#### 动态分配
+
+tf.device() 也可以传入一个函数名来代替设备字串，在这种情况下，这函数必须返回一个设备字串。这个特性允许复杂算法将变量分配到不同的设备上。
+
+#### 软分配
+
+当我们将TensorFlow的操作分配到GPU上，TF必须有这种操作的GPU实现，这被成为Kernel。如果Kernel不可用就会报运行错误。或者当该GPU不存在，也会有运行错误。最好的办法，就是允许在GPU不可用时，可以把这种操作分配到CPU上。我们可以使用如下命令：
+
+```python
+config.allow_soft_placement = True
+```
+
+#### GPU 显存处理
+
+当你开始运行TensorFlow会话时，默认情况下，它会抓走所有的GPU内存，即使你只将操作和变量分配到多GPU系统的一个额GPU上。这时，如果你运行另外一个会话（session）时，就会有一个内存不足的错误。解决办法有几个：
+
+* 对于多GPU系统，设置环境变量 CUDA_VISIBLE_DEVICES = <list of device idx>
+
+  ```python
+  os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+  ```
+
+  这个设置之后的代码，将会只用光可见GPU的内存。
+
+* 如果你不希望会话用光所有的显存，那么使用配置选项 per_process_gpu_memory_fraction 来分配内存的百分比
+
+  ```python
+  config.gpu_options.per_process_gpu_memory_fraction = 0.5
+  ```
+
+  上面代码分配50%的所有显存
+
+* 也可以限制TensorFlow进程在处理开始时指获取最小的所需内存，所着处理的深入而不断增长
+
+  ```python
+  config.gpu_options.allow_growth = True
+  ```
+
+  这个方式仅允许其内存分配增长，但内存用不释放
+
+### 多图
+
+可以从默认图中分离出你自己的图，并在一个会话中执行他们。然而，创建和执行多图并不推荐，因为以下缺点：
+
+* 同一个程序中创建和使用多图需要多个TensorFlow会话，并且每个会话都要消耗大量的资源。
+* 在图中不能直接传递数据
+
+推荐方法是在一个图中有多个子图。如果你需要用自己的图替代默认图，可以使用tf.Graph()。
+
+```python
+g = tf.Graph()
+output = 0
+with g.as_default():
+    w = tf.Variable([.3], tf.float32)
+    b = tf.Variable([-.3], tf.float32)
+    x = tf.placeholder(tf.float32)
+    y = w * x + b
+
+with tf.Session(graph=g) as tfs:
+    tf.global_variables_initializer().run()
+    output = tfs.run(y, {x: [1,2,3,4]})
+ 
+>>> print('output: ', output)
+output:  [0.         0.3        0.6        0.90000004]
+```
+
+### TensorBoard
+
+计算图的复杂度非常高，即使是普通规模的问题。大型计算图比如复杂的机器学习模型会变得相当令人困惑并且令人难以理解。可视化会帮助我们理解和解释计算图，同时可以加速debug和优化TensorFlow程序。TensorFlow有一个内建的可视化计算图工具叫做TensorBoard。
+
+#### 最小化TensorBoard的例子
+
+1. 开始定义我们线性模型的变量和占位符
+
+   ```python
+   w = tf.Variable([.3], name='w', dtype=tf.float32)
+   b = tf.Variable([-.3], name='b', dtype=tf.float32)
+   x = tf.placeholder(name='x', dtype=tf.float32)
+   y = w * x + b
+   ```
+
+2. 初始化一个会话，在其上下文内，完成以下的事：
+
+   * 初始化全局变量
+   * 创建 tf.summary.FileWriter 来在tflogs目录中新建默认图事件的输出
+   * 有效执行现行模型，获得 y 节点的值
+
+   ```python
+   with tf.Session() as tfs:
+       tfs.run(tf.global_variables_initializer())
+       writer = tf.summary.FileWriter('tflogs', tfs.graph)
+       print('run(y, {x:3}) :', tfs.run(y, {x:3}))
+   ```
+
+3. 我们获得输出：
+
+   ```python
+   run(y, {x:3}) : [0.6]
+   ```
+
+随着程序执行，tflog目录里已经记录所有的信息，以备TensorBoard可视化。打开命令行：
+
+```python
+tensorboard --logdir='tflogs'
+TensorBoard 1.6.0 at http://Master:6006 (Press CTRL+C to quit)
+```
+
+#### TensorBoard 细节
+
+TensorBoard 通过读取TensorFlow生成的日志工作。因此，我们需要修改定义好的程序模型来加入额外可以产生我们需要用TensorBoard可视化数据的额外操作节点。TensorBoard需要的程序模型或者程序流，一般可以定义如下：
+
+1. 如常的创建计算图。
+2. 创建汇总节点（summary nodes）。将来自tf.summary包中的附加汇总操作符附加到产生我们需要收集和分析数据的节点上。
+3. 运行模型节点的同时运行汇总节点。通常使用便捷函数 tf.summary.merge_all() 来将所有的汇总节点合并到一个节点上。运行这个节点基本上就会执行所有的汇总节点。合并的汇总节点会产生序列化的 Summary ProtocolBuffers 对象，包含所有汇总节点的总和。
+4. 通过把 Summary ProtocolBuffers 对象传递给函数tf.summary.FileWriter()来把事件日志写入磁盘。
+5. 启动TensorBoard并分析可视化数据。
+
+## Keras 101
+
+### Keras中的神经网络模型
+
+Keras中的神经网络模型被定义为层图。Keras中可以使用Sequential或者Functional API来创建模型。因此作为经验总结，使用顺序API创建简单模型，函数API创建复杂模型。不过，通过函数API创建复杂模型有利于将来将模型扩展成复杂模型，甚至分支和分享。所以我们主要用函数API来创建模型。
+
+#### Keras 中创建模型的工作流
+
+Keras中简单的工作流如下：
+
+1. 创建模型
+2. 在模型中创建和增加层
+3. 编译模型
+4. 训练模型
+5. 使用模型预测和评估
+
+### 创建Keras模型
+
+#### 用顺序API创建Keras模型
+
+```python
+model = Sequential()
+```
+
+现在可以给这个模型增加层，也可以在创建的时候就把层的参数传递进去
+
+```python
+model = Sequential([Dense(10, input_shape=(256, )),
+    Activation('tanh'),
+    Dense(10),
+    Activation('softmax')
+    ])
+```
+
+#### 用函数API创建Keras模型
+
+使用函数API，可以创建一个Model类的实例，拥有input和output参数。输入输出参数表现为一个或多个输入输出张量。
+
+```python
+model = Model(inputs=tensor1, output=tensor2)
+```
+
+上述代码中，tensor1和tensor2可以是张量或者可以作为张量对待的对象。比如，Keras的层。
+
+```python
+model = Model(inputs=[i1, i2, i3], output=[o1, o2, o3])
+```
+
+也可以传入张量列表。
+
+### Keras 的层
+
+为方便构造网络结构，Keras内建了很多层类别。
+
 
 
 
