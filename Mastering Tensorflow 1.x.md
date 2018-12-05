@@ -704,6 +704,173 @@ model = Model(inputs=[i1, i2, i3], output=[o1, o2, o3])
 
 为方便构造网络结构，Keras内建了很多层类别。
 
+#### Keras 核心层
+
+| 层名称                 | 描述                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| Dense                  | 就是一个简单的全链接神经网络层。这个曾会产生下面这个函数的输出 activation((inputs × weights) + bias)，activation是指传递给层的激活函数，默认值是None。 |
+| Activation             | 本层是针对输出的特定激活函数。其产生下面函数的输出 activation(inputs) activation是传递给层的激活函数。目前激活层有如下的的激活函数：softmax, elu, selu, softplus, softsign, relu, tanh, sigmoid, hard_sigmoid 和 linear |
+| Dropout                | 这个层是对输入数据有在特定的丢弃率下正规化丢弃               |
+| Flatten                | 这一层扁平化输入，比如，一个三位输入会被扁平化，并产生一维输出 |
+| Reshape                | 将输入转换为特定的shape                                      |
+| Permute                | 按照特定的模式重新排序输入维度                               |
+| RepeatVector           | 根据给定的次数重复输入。比如，如果输入是一个2D张量，其shape为(#samples, #features)，同时本层给定n次重复，那么输出会是3D 张量，其shape为(#samples, n, #features) |
+| Lambda                 | 将给出的函数封装为一层。因此，输入被传给给定自定义的函数并产生输出。这层给Keras用户提供了极其方便的方式来将其函数变成层 |
+| ActivityRegularization | 对其输入采用L1、L2或者其组合来正规化。这个层被用于激活层或有激活函数的层的输出 |
+| Masking                | 当所有输入张量的值等于层中的遮罩值时，遮住或者跳过输入张量的这步 |
+
+#### Keras 卷积层
+
+| 层名            | 描述                                                         |
+| --------------- | ------------------------------------------------------------ |
+| Conv1D          | 在输入为单一空间或者临时维度上应用卷积                       |
+| Conv2D          | 在输入上应用2维卷积                                          |
+| SeparableConv2D | 在每个输入通道中应用深度级空间卷积，后随混合起来的点级卷积，一起产生输出通道 |
+| Conv2DTranspose | 根据输入shape反转卷积的shape来产生这些卷积                   |
+| Conv3D          | 在输入上应用3维卷积                                          |
+| Cropping1D      | 根据临时维度裁剪输入数据                                     |
+| Cropping2D      | 根据空间维度裁剪输入数据，比如，图片的宽和高                 |
+| Cropping3D      | 根据时空裁剪输入数据，所有的三维空间                         |
+| UpSampling1D    | 在时间轴上重复输入数据指定次数                               |
+| UpSampling2D    | 在行和列两个维度上重复输入数据的两个维指定次数               |
+| UpSampling3D    | 沿着三维重复输入数据的三维指定次数                           |
+| ZeroPadding1D   | 在时间维开始和结束的地方增加0                                |
+| ZeroPadding2D   | 在2D张量的上下左右增加0的行和列                              |
+| ZeroPadding3D   | 在3D张量的三个维度上增加0                                    |
+
+Keras池层
+
+| 层名                   | 描述                                 |
+| ---------------------- | ------------------------------------ |
+| MaxPooling1D           | 对于一维输入数据实现最大池化操作     |
+| MaxPooling2D           | 对于二维输入数据实现最大池化操作     |
+| MaxPooling3D           | 对于三维输入数据实现最大池化操作     |
+| AveragePooling1D       | 对于一维输入数据实现平均池化操作     |
+| AveragePooling2D       | 对于二维输入数据实现平均池化操作     |
+| AveragePooling3D       | 对于三维输入数据实现平均池化操作     |
+| GlobalMaxPooling1D     | 对于一维输入数据实现全局最大池化操作 |
+| GlobalMaxPooling2D     | 对于二维输入数据实现全局最大池化操作 |
+| GlobalAveragePooling1D | 对于一维输入数据实现全局平均池化操作 |
+| GlobalAveragePooling2D | 对于一维输入数据实现全局平均池化操作 |
+
+#### Keras 本地链接层
+
+| 层名               | 描述                                                         |
+| ------------------ | ------------------------------------------------------------ |
+| LocallyConnected1D | 在输入数据的单一空间或临时维度上通过对输入的不同批次中应用不同的集合或者过滤器应用卷积，所以并不共享权重 |
+| LocallyConnected2D | 对于输入的二维数据通过对输入的不同批次中应用不同的集合或者过滤器应用卷积，所以并不共享权重 |
+
+#### Keras 递归层
+
+| 层名      | 描述                     |
+| --------- | ------------------------ |
+| SimpleRnn | 实现全连接的递归神经网络 |
+| GRU       | 实现门控递归单元网络     |
+| LSTM      | 实现长短期记忆网络       |
+
+#### Keras 嵌入网络
+
+| 层名 | 描述                                                         |
+| ---- | ------------------------------------------------------------ |
+| 嵌入 | 获取由索引组成的shape(batch_size, sequence_length)2D张量，输出由shape(batch_size, sequence_length, output_dim)稠密向量组成的张量 |
+
+#### Keras 融合层
+
+| 层名                                                  | 描述                                       |
+| ----------------------------------------------------- | ------------------------------------------ |
+| Add                                                   | 计算输入张量的元素级加法                   |
+| Multiply                                              | 计算输入张量的元素级乘法                   |
+| Average                                               | 计算输入向量的元素级平均                   |
+| Maximum                                               | 计算输入向量的元素级最大                   |
+| Concatenate                                           | 在指定坐标轴上连接输入张量                 |
+| Dot                                                   | 计算两个输入张量的点积                     |
+| add, multiply, average, maximum, concatenate, and dot | 这些函数代表这个表格中各自融合层的函数界面 |
+
+#### Keras 高级激活层
+
+| 层名            | 描述                       |
+| --------------- | -------------------------- |
+| LeakyRelu       | 计算泄漏版本的ReLU激活函数 |
+| PReLU           | 计算参数化ReLU激活函数     |
+| ELU             | 计算指数线性单元激活函数   |
+| ThresholdedReLU | 计算阈版本的ReLU激活函数   |
+
+#### Keras 正规化层
+
+| 层名               | 描述                                                         |
+| ------------------ | ------------------------------------------------------------ |
+| BatchNormalization | 这层正规化了每个批次中前一层的输出，本层的输出接近0均值1标准差 |
+
+#### Keras 噪声层
+
+这些层可以被加入模型通过增加噪声以防止过拟合;也被称为正则化层。这些层的操作与核心层中的Dropout()和ActivityRegularizer()一致
+
+| 层名            | 描述                                                         |
+| --------------- | ------------------------------------------------------------ |
+| GaussianNoise   | 将0中心的高斯分布噪音附加到输入                              |
+| GaussianDropout | 将1为中心的多种高斯噪音附加到输入                            |
+| AlphaDropout    | 丢弃一定百分比的输入，同时丢弃后输出的均值和方差非常匹配输出的均值和方差 |
+
+### 给Keras模型增加层
+
+#### 使用顺序API为Keras模型增加层
+
+使用顺序API，你可以通过实例化前面提及的层类型来创建新层。然后，这些创建的层可以通过model.add()加入模型。比如：
+
+```python
+model = Sequential()
+model.add(Dense(10, input_shape=(256,)))
+model.add(Activation('tanh'))
+model.add(Dense(10))
+model.add(Activation('softmax'))
+```
+
+#### 使用函数API为Keras模型添加层
+
+使用函数API，层在最开始的时候以函数的方式创建，然后在构建模型时，输入输出层被提供给tensor 参数。比如：
+
+1. 创建输入层：
+
+   ```python
+   input = Input(shape=(64,))
+   ```
+
+2. 从输入层中以函数的形式创建稠密层
+
+   ```python
+   hidden = Dense(10)(input)
+   ```
+
+3. 同样的，在前一层之后，以函数的形式创建更多的隐藏层：
+
+   ```python
+   hidden = Activation('tanh')(hidden)
+   hidden = Dense(10)(hidden)
+   output = Activation('softmax')(hidden)
+   ```
+
+4. 最后带着输入输出层实例化模型对象：
+
+   ```python
+   model = Model(inputs=input, outputs=output)
+   ```
+
+### 编译Kares模型
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
