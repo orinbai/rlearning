@@ -1,3 +1,7 @@
+---
+typora-copy-images-to: media
+---
+
 # Mastering Tensorflow 1.x
 
 ## Tensorflow 101
@@ -1083,9 +1087,135 @@ plt.title('Original Dataset')
 plt.show()
 ```
 
+![Figure_1](media/Figure_1.png)
 
+分割测试、训练数据集
 
+```python
+# 原书少了这个引用，而且过去sklearn中的cross_validation现在使用model_selection代替了
+import sklearn.model_selection as skms
+X_train, X_test, y_train, y_test = skms.train_test_split(X, y,
+                                                        test_size=.2,
+                                                        random_state=123)
+```
 
+#### 建立简单回归模型
+
+使用TensorFlow建立简单回归模型，需要以下步骤：
+
+1. 定义输入、参数和其他变量
+2. 定义模型
+3. 定义损失函数
+4. 定义优化函数
+5. 经过一定数量的迭代训练，也就是“代”
+
+##### 定义输入、参数和其他变量
+
+```python
+num_outputs = y_train.shape[1]
+num_inputs = X_train.shape[1]
+
+x_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_inputs], name='x')
+y_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_outputs], name='y')
+
+w = tf.Variable(tf.zeros([num_inputs, num_outputs]), dtype=tf.float32, name='w')
+b = tf.Variable(tf.zeros([num_outputs]), dtype=tf.float32, name='b')
+```
+
+##### 定义模型
+
+```python
+model = tf.matmul(x_tensor, w) + b
+```
+
+##### 定义损失函数
+
+定义均方误差为损失函数（MSE）：
+$$
+\frac{1}{n}\sum(y_i-\hat{y_i})^2
+$$
+
+```python
+loss = tf.reduce_mean(tf.square(model - y_tensor))
+```
+
+同时定义均方误差和r方（r-squared)函数用来评估训练模型。
+
+```python
+mse = tf.reduce_mean(tf.square(model - y_tensor))
+y_mean = tf.reduce_mean(y_tensor)
+total_error = tf.reduce_sum(tf.square(y_tensor - y_mean))
+unexplained_error = tf.reduce_sum(tf.square(y_tensor-model))
+rs = 1 - tf.div(unexplained_error, total_error)
+```
+
+##### 定义优化函数
+
+```python
+learning_rate = .01
+optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
+```
+
+*注意写法*
+
+##### 训练模型
+
+现在有了模型，损失函数和优化函数，训练模型还需要定义以下全局变量：
+
+* num_epochs：运行训练的迭代次数。每次迭代模型都会学习更好的参数，后续可以看图了解
+* w_hat，b_hat：w、b参数的估计值
+* loss_epochs, mse_epochs, rs_epochs：每次迭代的训练集中所有的误差值，同时还有测试集上的mse和r方
+* mse_score和rs_score：最终模型的mse和r方的值
+
+```python
+import numpy as np
+num_epochs = 10
+w_hat = 0
+b_hat = 0
+loss_epochs = np.empty(shape=[num_epochs], dtype=float)
+mse_epochs = np.empty(shape=[num_epochs], dtype=float)
+rs_epochs = np.empty(shape=[num_epochs], dtype=float)
+loss_epoch = {}
+mse_epoch = {}
+rs_epoch = {}
+
+mse_score = 0
+rs_score = 0
+```
+
+初始化session和全局变量，运行训练循环num_epochs次
+
+```python
+with tf.Session() as tfs:
+    tf.global_variables_initializer().run()
+    for epoch in range(num_epochs):
+        # 每次循环都在训练集上运行优化
+        tfs.run(optimizer, feed_dict={x_tensor: X_train, y_tensor: y_train})
+        # 应用学习到的w、b计算误差，备将来画图
+        loss_val = tfs.run(loss, feed_dict={x_tensor: X_train, y_tensor: y_train})
+        loss_epoch[epoch] = loss_val
+        # 依照测试数据集计算预测的MSE和R方
+        mse_score = tfs.run(mse, feed_dict={x_tensor: X_test, y_tensor: y_test})
+        mse_epoch[epoch] = mse_score
+        wh,bh = tfs.run([w, b])
+        print(wh, bh)
+        mh = tfs.run()
+        rs_score = tfs.run(rs, feed_dict={x_tensor: X_test, y_tensor: y_test, w: wh, b: bh})
+        print(rs_score)
+        rs_epoch[epoch] = rs_score
+    # 最后循环一结束保存w,b
+    test1 = tfs.run(y_mean, feed_dict={y_tensor: y_test})
+    tErr = tfs.run(total_error, feed_dict={y_tensor: y_test, y_mean:test1})
+    w_hat, b_hat = tfs.run([w, b])
+    test2 = tfs.run(model, feed_dict={x_tensor: X_test, w: w_hat, b: b_hat})
+    uErr = tfs.run(unexplained_error, feed_dict={y_tensor: y_test, model:test2})
+    w_hat = w_hat.reshape(1)
+    mm=tfs.run(1-tf.div(uErr, tErr))
+    print(mm, uErr/tErr)
+
+print('Model: Y = {0:.8f} X + {1:.8f}'.format(w_hat[0], b_hat[0]))
+print('For test data: MSE = {0:.8f}, R2 = {1:.8f}'.format(mse_score, rs_score))
+```
 
 
 
