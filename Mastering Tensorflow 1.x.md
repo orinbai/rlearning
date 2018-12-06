@@ -857,7 +857,231 @@ model.add(Activation('softmax'))
 
 ### 编译Kares模型
 
+之前建立的模型在用于预测和训练前，需要使用model.compile()进行编译。compile()的使用说明如下：
 
+```python
+compile(self, optimizer, loss, metrics=None, sample_weight_mode=None)
+```
+
+编译方法需要三个参数：
+
+* optimizer：可以使用自己或者由Keras提供的函数。这个函数是用于更新优化迭代参数。Keras内置的优化函数：
+  * SGD
+  * RMSprop
+  * Adagrad
+  * Adadelta
+  * Adam
+  * Adamax
+  * Nadam
+* loss：可以使用自己或者提供的损失函数。优化器通过优化参数使得loss函数的输出最小化。Keras提供的损失函数：
+  * mean_squared_error
+  * mean_absolute_error
+  * mean_absolute_pecentage_error
+  * mean_squared_logarithmic_error
+  * squared_hinge
+  * hinge
+  * categorical_hinge
+  * sparse_categorical_crossentropy
+  * binary_crossentropy
+  * poisson
+  * cosine proximity
+  * binary_accuracy
+  * categorical_accuracy
+  * top_k_categorical_accuracy
+  * sparse_top_k_categorical_accuracy
+* metrics：列出需要训练时需要收集的指标。如果打开了详细输出模式，每代时会被输出。这些指标与损失函数相似，所有损失函数也可以作为指标函数使用。
+
+### 训练Keras模型
+
+通过运行model.fit()就可以训练Keras模型，说明如下：
+
+```python
+fit(self, x, y, batch_size=32, epochs=10, verbose=1, callbacks=None, validation_split=0.0, validation_data=None, suffle=True, class_weight=None, sample_weight=None, initial_epoch=0)
+```
+
+详情可以查看[Keras网站](https://keras.io/models/sequential/)
+
+### 使用Keras模型预测
+
+训练好的模型可以使用model.predict()来预测或使用model.evaluate()来进行评估，具体使用说明如下：
+
+```python
+predict(self, x, batch_size=32, verbose=0)
+evaluate(self, x, y, batch_size=32, verbose=1, sample_weight=None)
+```
+
+### Keras的附加模块
+
+Keras提供了一些附加模块，通过增加的功能性来补足Keras的基本工作流。下面是一些模块：
+
+* preprocessing 模块提供了一些序列、图片和文本数据的预处理函数
+* datasets 模块提供了快速操作某些流行数据集的函数，比如 CIFAR10 图片，CIFAR100图片，IMDB 影评， 路透新闻标题，MNIST手写数字和波士顿房屋价格。
+* initializers 提供了初始化每层的参数权重的函数，例如Zeros, Ones, Constant, RandomNormal, RandomUniform, TruncatedNormal, VarianceScaling, Orthogonal, Identity, lecun_normal和he_uniform。
+* models 模块提供了一些函数来载入模型架构和权重，比如 model_from_json, model_from_yaml和load_model。模型架构可以是用model.to_yaml()和model.to_json()方法来存储。模型权重可以使用model.save()方法，以HDF5文件存储。
+* applications 提供了一些预制或者预训练的模型，例如Xception， VGG16, VGG19, ResNet50, Inception V3， InceptionResNet V2和MobileNet。
+
+### 使用Keras顺序模型为例为 MNIST 数据集建模
+
+```python
+import keras
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+from keras.optimizers import SGD
+from keras import utils
+import numpy as np
+
+# 定义超参数
+batch_size = 100
+n_inputs = 784
+n_classes = 10
+n_epochs = 10
+
+# 获得数据
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+
+# 调整shape到2维 28×28 像素
+# 将图片放进784像素的单个向量
+x_train = x_train.reshape(60000, n_inputs)
+x_test = x_test.reshape(10000, n_inputs)
+
+# 转换输入值为float32
+x_train = x_train.astype(np.float32)
+x_test = x_test.astype(np.float32)
+
+# 标准化图片向量值
+x_train /=255
+x_test /= 255
+
+# 转换输出数据为one hot编码格式
+y_train = utils.to_categorical(y_train, n_classes)
+y_test = utils.to_categorical(y_test, n_classes)
+
+# 构建顺序模型
+model = Sequential()
+# 第一层必须指定输入向量的维度
+model.add(Dense(units=128, activation='sigmoid', input_shape=(n_input,)))
+# 增加Dropout层防止过拟合
+model.add(Dropout(0.1))
+model.add(Dense(units=128, activation='sigmoid'))
+model.add(Dropout(0.1))
+# 输出层只能让神经元与输出的数量相等
+model.add(Dense(units=n_classes, activation='softmax'))
+
+# 输出我们模型的汇总信息
+model.summary()
+
+# 编译模型
+model.compile(loss='categorical_crossentropy',
+             optimizer=SGD(),
+             metrics=['accuracy'])
+# 训练模型
+model.fit(x_train, y_train,
+         batch_size=batch_size,
+         epochs=n_epochs)
+# 评估模型并打印准确率得分
+scores = model.evaluate(x_test, y_test)
+
+print('\n loss:', scores[0])
+print('\n accuracy:', scores[1])
+
+Layer (type)                 Output Shape              Param #   
+=================================================================
+dense_13 (Dense)             (None, 128)               100480    
+_________________________________________________________________
+dropout_9 (Dropout)          (None, 128)               0         
+_________________________________________________________________
+dense_14 (Dense)             (None, 128)               16512     
+_________________________________________________________________
+dropout_10 (Dropout)         (None, 128)               0         
+_________________________________________________________________
+dense_15 (Dense)             (None, 10)                1290      
+=================================================================
+Total params: 118,282
+Trainable params: 118,282
+Non-trainable params: 0
+_________________________________________________________________
+
+Epoch 1/10
+2018-12-06 18:24:51.613219: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:964] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2018-12-06 18:24:51.614108: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1411] Found device 0 with properties: 
+name: GeForce GTX 1050 major: 6 minor: 1 memoryClockRate(GHz): 1.531
+pciBusID: 0000:03:00.0
+totalMemory: 1.95GiB freeMemory: 1.84GiB
+2018-12-06 18:24:51.614143: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1490] Adding visible gpu devices: 0
+2018-12-06 18:24:52.707358: I tensorflow/core/common_runtime/gpu/gpu_device.cc:971] Device interconnect StreamExecutor with strength 1 edge matrix:
+2018-12-06 18:24:52.707414: I tensorflow/core/common_runtime/gpu/gpu_device.cc:977]      0 
+2018-12-06 18:24:52.707425: I tensorflow/core/common_runtime/gpu/gpu_device.cc:990] 0:   N 
+2018-12-06 18:24:52.707610: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1103] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 1595 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1050, pci bus id: 0000:03:00.0, compute capability: 6.1)
+60000/60000 [==============================] - 4s 62us/step - loss: 2.3023 - acc: 0.1269
+Epoch 2/10
+60000/60000 [==============================] - 2s 27us/step - loss: 2.2287 - acc: 0.1993
+Epoch 3/10
+60000/60000 [==============================] - 2s 27us/step - loss: 2.1361 - acc: 0.2947
+Epoch 4/10
+60000/60000 [==============================] - 2s 27us/step - loss: 1.9934 - acc: 0.3967
+Epoch 5/10
+60000/60000 [==============================] - 2s 27us/step - loss: 1.7898 - acc: 0.4878
+Epoch 6/10
+60000/60000 [==============================] - 2s 27us/step - loss: 1.5636 - acc: 0.5584
+Epoch 7/10
+60000/60000 [==============================] - 2s 27us/step - loss: 1.3600 - acc: 0.6125
+Epoch 8/10
+60000/60000 [==============================] - 2s 27us/step - loss: 1.1919 - acc: 0.6576
+Epoch 9/10
+60000/60000 [==============================] - 2s 27us/step - loss: 1.0609 - acc: 0.6941
+Epoch 10/10
+60000/60000 [==============================] - 2s 27us/step - loss: 0.9583 - acc: 0.7225
+
+10000/10000 [==============================] - 0s 31us/step
+loss: 0.8364587327003479
+accuracy: 0.7888
+```
+
+## TensorFlow应用于经典机器学习
+
+所有的机器学习问题都可以抽象成下面的等式：
+$$
+y = f(x)
+$$
+y是输出或者目标，x是输入或者特征。如果x是特征集合，那么可以称之为特征向量写成X。我们所说的模型，是指找到从特征到目标的映射函数f。一旦我们找到了f，我们就可以使用新的x来预测y值。
+
+### 简单线性回归
+
+#### 数据准备
+
+我们使用sklearn包中的datasets模块里make_regression函数来生成数据集：
+
+```python
+from sklearn import datasets as skds
+X, y = skds.make_regression(n_samples=200,
+                           n_features=1,
+                           n_informative=1,
+                           n_targets=1,
+                           noise=20.0)
+>>> print(y.shape)
+(200,)
+```
+
+因为生成的y是1维的Numpy数组，所以我们需要把它变成2维的数组
+
+```python
+if(y.ndim==1):
+    y = y.reshape(len(y), 1)
+
+>>> print(y.shape)
+(200, 1)
+```
+
+通过画出生成数据集观察数据：
+
+```python
+import matplotlib.pyplot as plt
+plt.figure(figsize=(14, 8))
+plt.plot(X, y, 'b.')
+plt.title('Original Dataset')
+plt.show()
+```
 
 
 
