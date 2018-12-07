@@ -1169,7 +1169,7 @@ optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
 
 ```python
 import numpy as np
-num_epochs = 10
+num_epochs = 1500
 w_hat = 0
 b_hat = 0
 loss_epochs = np.empty(shape=[num_epochs], dtype=float)
@@ -1193,35 +1193,86 @@ with tf.Session() as tfs:
         tfs.run(optimizer, feed_dict={x_tensor: X_train, y_tensor: y_train})
         # 应用学习到的w、b计算误差，备将来画图
         loss_val = tfs.run(loss, feed_dict={x_tensor: X_train, y_tensor: y_train})
-        loss_epoch[epoch] = loss_val
+        loss_epochs[epoch] = loss_val
         # 依照测试数据集计算预测的MSE和R方
         mse_score = tfs.run(mse, feed_dict={x_tensor: X_test, y_tensor: y_test})
-        mse_epoch[epoch] = mse_score
-        wh,bh = tfs.run([w, b])
-        print(wh, bh)
-        mh = tfs.run()
+        mse_epochs[epoch] = mse_score
+        #wh,bh = tfs.run([w, b])
+        #print(wh, bh)
+        #mh = tfs.run(model)
         rs_score = tfs.run(rs, feed_dict={x_tensor: X_test, y_tensor: y_test, w: wh, b: bh})
-        print(rs_score)
-        rs_epoch[epoch] = rs_score
+        #print(rs_score)
+        rs_epochs[epoch] = rs_score
     # 最后循环一结束保存w,b
-    test1 = tfs.run(y_mean, feed_dict={y_tensor: y_test})
-    tErr = tfs.run(total_error, feed_dict={y_tensor: y_test, y_mean:test1})
+    #test1 = tfs.run(y_mean, feed_dict={y_tensor: y_test})
+    #tErr = tfs.run(total_error, feed_dict={y_tensor: y_test, y_mean:test1})
     w_hat, b_hat = tfs.run([w, b])
-    test2 = tfs.run(model, feed_dict={x_tensor: X_test, w: w_hat, b: b_hat})
-    uErr = tfs.run(unexplained_error, feed_dict={y_tensor: y_test, model:test2})
+    #test2 = tfs.run(model, feed_dict={x_tensor: X_test, w: w_hat, b: b_hat})
+    #uErr = tfs.run(unexplained_error, feed_dict={y_tensor: y_test, model:test2})
     w_hat = w_hat.reshape(1)
-    mm=tfs.run(1-tf.div(uErr, tErr))
-    print(mm, uErr/tErr)
+    #mm=tfs.run(1-tf.div(uErr, tErr))
+    #print(mm, uErr/tErr)
 
 print('Model: Y = {0:.8f} X + {1:.8f}'.format(w_hat[0], b_hat[0]))
 print('For test data: MSE = {0:.8f}, R2 = {1:.8f}'.format(mse_score, rs_score))
 ```
 
+*两版tensorflow* 居然不同？
 
+```python
+plt.figure(figsize=(14, 8))
+plit.title('Original Data and Trained Model')
+x_plot = [np.min(X) - 1, np.max(X) + 1]
+y_plot = w_hat*x_plot + b_hat
+plt.axis([x_plot[0], x_plot[1], y_plot[0], y_plot[1]])
+plt.plot(X, y, 'b.', label='Original Data')
+plt.plot(x_plot, y_plot, 'r-', label='Trained Model')
+plt.legend()
+plt.savefig('figure1.png')
+```
 
+![figure1](media/figure1.png)
 
+下面画出每代MSE训练和测试集的情况
 
+```python
+plt.figure(figsize=(14, 8))
+plt.axis([0, num_epochs, 0, np.max(loss_epochs)])
+plt.plot(loss_epochs, label='Loss on X_train')
+plt.title('Loss in Iterations')
+plt.xlabel('# Epoch')
+plt.ylabel('MSE')
 
+plt.axis([0, num_epochs, 0, np.max(mse_epochs)])
+plt.plot(mse_epochs, label='MSE on X_test')
+plt.xlabel('# Epoch')
+plt.ylabel('MSE')
+plt.legend()
+
+plt.savefig('figure2.png')
+```
+
+![figure2](media/figure2.png)
+
+我们看一下R方：
+
+```python
+plt.figure(figsize=(14, 8))
+plt.axis([0, num_epochs, 0, np.max(rs_epochs)])
+plt.plot(rs_epochs, label='R2 on X_test')
+plt.xlabel('# Epoch')
+plt.ylabel('R2')
+plt.legend()
+plt.savefig('figure3.png')
+```
+
+![figure3](media/figure3.png)
+
+#### 使用训练好的模型预测
+
+用线性模型预测，是在最小MSE的理解上而来的，我们看到，基本上是一条直线，与散点图拟合的不太完美。
+
+### 多元回归
 
 
 
