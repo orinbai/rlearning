@@ -1274,9 +1274,120 @@ plt.savefig('figure3.png')
 
 ### 多元回归
 
+使用的是波士顿房屋数据
+$$
+SS_{tot} = \sum_i^n(y_i-\bar y)^2
+$$
+
+$$
+SS_{reg} = \sum_i^n(\hat y_i - \bar y)^2
+$$
+
+$$
+SS_{err} = \sum_i^n(\hat y_i - y_i)^2
+$$
+
+$$
+R^2 = \frac {SSR}{SST} = \frac {SST-SSE}{SST} = 1 - \frac {SSE}{SST}
+$$
 
 
 
+```python
+import tensorflow as tf
+import sklearn.datasets as skds
+import numpy as np
+import sklearn.preprocessing as skpp
+import sklearn.model_selection as skms
+
+boston = skds.load_boston()
+X = boston.data.astype(np.float32)
+y = boston.target.astype(np.float32)
+if (y.ndim == 1):
+    y = y.reshape(len(y), 1)
+
+
+X = skpp.StandardScaler().fit_transform(X)
+X_train, X_test, y_train, y_test = skms.train_test_split(X, y, test_size=.2, random_state=123)
+num_outputs = y_train.shape[1]
+num_inputs = X_train.shape[1]
+
+x_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_inputs], name='x')
+y_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_outputs], name='y')
+
+w = tf.Variable(tf.zeros([num_inputs, num_outputs]), dtype=tf.float32, name='w')
+b = tf.Variable(tf.zeros([num_outputs]), dtype=tf.float32, name='b')
+
+model = tf.matmul(x_tensor, w) + b
+loss = tf.reduce_mean(tf.square(model - y_tensor))
+
+mse = tf.reduce_mean(tf.square(model - y_tensor))
+y_mean = tf.reduce_mean(y_tensor)
+total_error = tf.reduce_sum(tf.square(y_tensor - y_mean))
+unexplained_error = tf.reduce_sum(tf.square(y_tensor - model))
+rs = 1 - (tf.div(unexplained_error, total_error))
+
+learning_rate = 0.001
+optimizer = tf.train.GradientDescentOptimizer(learning_rate)minimize(loss)
+
+num_epochs = 1500
+loss_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+mse_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+rs_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+
+mse_score = 0
+rs_score = 0
+
+with tf.Session() as tfs:
+    tfs.run(tf.global_variables_initializer())
+    for epoch in range(num_epochs):
+        feed_dict = {x_tensor: X_train, y_tensor: y_train}
+        loss_val, _ = tfs.run([loss, optimizer], feed_dict)
+        loss_epochs[epoch] = loss_val
+        
+        feed_dict = {x_tensor: X_test, y_tensor: y_test}
+        mse_score, rs_score = tfs.run([mse, rs], feed_dict)
+        mse_epochs[epoch] = mse_score
+        rs_epochs[epoch] = rs_score
+        
+
+>>> print('For test data: MSE = {0:.8f}, R2 = {1:.8f}'.format(mse_score, rs_score))
+For test data: MSE = 32.59047699, R2 = 0.60608959
+```
+
+```python
+import matplotlib.pyplot as plt
+plt.figure(figsize=(14, 8))
+plt.axis([0, num_epochs, 0, np.max(loss_epochs)])
+plt.plot(loss_epochs, label='Loss on X_train')
+plt.title('Loss in Iterations')
+plt.xlabel('# Epoch')
+plt.ylabel('MSE')
+
+plt.axis([0, num_epochs, 0, np.max(mse_epochs)])
+plt.plot(mse_epochs, label='MSE on X_test')
+plt.xlabel('# Epoch')
+plt.ylabel('MSE')
+plt.legend()
+
+plt.savefig('media/ML_R2.png')
+```
+
+![MSE 散点图](media/ML_R2.png)
+
+```python
+plt.figure(figsize=(14, 8))
+plt.axis([0, num_epochs, 0, np.max(rs_epochs)])
+plt.plot(rs_epochs, label='R2 on X_test')
+plt.xlabel('# Epoch')
+plt.ylabel('R2')
+plt.legend()
+plt.savefig('media/ML_R2_2.png')
+```
+
+![R2的散点图](media/ML_R2_2.png)
+
+### 正则化回归
 
 
 
