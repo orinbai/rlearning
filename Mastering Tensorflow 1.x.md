@@ -1389,13 +1389,132 @@ plt.savefig('media/ML_R2_2.png')
 
 ### 正则化回归
 
+为了防止回归的过拟合我们加入了惩罚项，也称作正则项。加入了该项的回归被称作正则化回归，主要有三种：
+
+* Lasso 回归，也被称为L1正则项，lasso参数乘以权重绝对值之和，其损失函数变为：
+  $$
+  \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha\sum_{i=1}^n|w_i|
+  $$
 
 
+* 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
+  $$
+  \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
+  $$
 
 
+* ElasticNet 回归，同时增加L1和L2，损失函数为：
+  $$
+  \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
+  $$
 
 
+[详细正则化](http://www.staticticshowto.com/regularization/)
 
+从经验角度讲，当我们需要去掉某些特征时可以使用L1或者Lasso，来减少计算时间，但会降低精度。
+
+#### Lasso 正则
+
+越大的正则参数，惩罚越大。
+
+```python
+import tensorflow as tf
+import sklearn.datasets as skds
+import numpy as np
+import sklearn.preprocessing as skpp
+import sklearn.model_selection as skms
+
+boston = skds.load_boston()
+X = boston.data.astype(np.float32)
+y = boston.target.astype(np.float32)
+if (y.ndim == 1):
+    y = y.reshape(len(y), 1)
+
+
+X = skpp.StandardScaler().fit_transform(X)
+X_train, X_test, y_train, y_test = skms.train_test_split(X, y, test_size=.2, random_state=123)
+num_outputs = y_train.shape[1]
+num_inputs = X_train.shape[1]
+
+x_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_inputs], name='x')
+y_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_outputs], name='y')
+
+w = tf.Variable(tf.zeros([num_inputs, num_outputs]), dtype=tf.float32, name='w')
+b = tf.Variable(tf.zeros([num_outputs]), dtype=tf.float32, name='b')
+
+model = tf.matmul(x_tensor, w) + b
+lasso_param = tf.Variable(0.8, dtype=tf.float32)
+lasso_loss = tf.reduce_mean(tf.abs(w)) * lasso_param
+loss = tf.reduce_mean(tf.square(model - y_tensor)) + lasso_loss
+
+mse = tf.reduce_mean(tf.square(model - y_tensor))
+y_mean = tf.reduce_mean(y_tensor)
+total_error = tf.reduce_sum(tf.square(y_tensor - y_mean))
+unexplained_error = tf.reduce_sum(tf.square(y_tensor - model))
+rs = 1 - (tf.div(unexplained_error, total_error))
+
+learning_rate = 0.001
+optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
+
+num_epochs = 1500
+loss_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+mse_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+rs_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+
+mse_score = 0
+rs_score = 0
+
+with tf.Session() as tfs:
+    tfs.run(tf.global_variables_initializer())
+    for epoch in range(num_epochs):
+        feed_dict = {x_tensor: X_train, y_tensor: y_train}
+        loss_val, _ = tfs.run([loss, optimizer], feed_dict)
+        loss_epochs[epoch] = loss_val
+        
+        feed_dict = {x_tensor: X_test, y_tensor: y_test}
+        mse_score, rs_score = tfs.run([mse, rs], feed_dict)
+        mse_epochs[epoch] = mse_score
+        rs_epochs[epoch] = rs_score
+        
+        
+>>> print('For test data: MSE = {0:.8f}, R2 = {1:.8f}'.format(mse_score, rs_score))
+For test data: MSE = 32.59975433, R2 = 0.60597742
+```
+
+MSE 图
+
+```python
+plt.figure(figsize=(14, 8))
+plt.axis([0, num_epochs, 0, np.max(loss_epochs)])
+plt.plot(loss_epochs, label='Loss on X_train')
+plt.title('Loss in Iterations')
+plt.xlabel('# Epoch')
+plt.ylabel('MSE')
+
+plt.axis([0, num_epochs, 0, np.max(mse_epochs)])
+plt.plot(mse_epochs, label='MSE on X_test')
+plt.xlabel('# Epoch')
+plt.ylabel('MSE')
+plt.legend()
+
+plt.savefig('media/RR_L1_MSE.png')
+```
+
+![MSE](media/RR_L1_MSE.png)
+
+R2图
+
+```python
+plt.figure(figsize=(14, 8))
+plt.axis([0, num_epochs, 0, np.max(rs_epochs)])
+plt.plot(rs_epochs, label='R2 on X_test')
+plt.xlabel('# Epoch')
+plt.ylabel('R2')
+plt.legend()
+plt.savefig('media/RR_L1_R2.png')
+```
+
+![R2](media/RR_L1_R2.png)
 
 
 
