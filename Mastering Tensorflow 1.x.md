@@ -1397,16 +1397,25 @@ plt.savefig('media/ML_R2_2.png')
   $$
 
 
+
+
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
   $$
 
 
+
+
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
+
+
 
 
 [详细正则化](http://www.staticticshowto.com/regularization/)
@@ -1515,6 +1524,336 @@ plt.savefig('media/RR_L1_R2.png')
 ```
 
 ![R2](media/RR_L1_R2.png)
+
+#### 岭正则
+
+```python
+import tensorflow as tf
+import sklearn.datasets as skds
+import numpy as np
+import sklearn.preprocessing as skpp
+import sklearn.model_selection as skms
+
+boston = skds.load_boston()
+X = boston.data.astype(np.float32)
+y = boston.target.astype(np.float32)
+if (y.ndim == 1):
+    y = y.reshape(len(y), 1)
+
+
+X = skpp.StandardScaler().fit_transform(X)
+X_train, X_test, y_train, y_test = skms.train_test_split(X, y, test_size=.2, random_state=123)
+num_outputs = y_train.shape[1]
+num_inputs = X_train.shape[1]
+
+x_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_inputs], name='x')
+y_tensor = tf.placeholder(dtype=tf.float32, shape=[None, num_outputs], name='y')
+
+w = tf.Variable(tf.zeros([num_inputs, num_outputs]), dtype=tf.float32, name='w')
+b = tf.Variable(tf.zeros([num_outputs]), dtype=tf.float32, name='b')
+
+model = tf.matmul(x_tensor, w) + b
+ridge_param = tf.Variable(0.8, dtype=tf.float32)
+ridge_loss = tf.reduce_mean(tf.square(w)) * ridge_param
+loss = tf.reduce_mean(tf.square(model - y_tensor)) + ridge_loss
+
+mse = tf.reduce_mean(tf.square(model - y_tensor))
+y_mean = tf.reduce_mean(y_tensor)
+total_error = tf.reduce_sum(tf.square(y_tensor - y_mean))
+unexplained_error = tf.reduce_sum(tf.square(y_tensor - model))
+rs = 1 - (tf.div(unexplained_error, total_error))
+
+learning_rate = 0.001
+optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
+
+num_epochs = 1500
+loss_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+mse_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+rs_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+
+mse_score = 0
+rs_score = 0
+
+with tf.Session() as tfs:
+    tfs.run(tf.global_variables_initializer())
+    for epoch in range(num_epochs):
+        feed_dict = {x_tensor: X_train, y_tensor: y_train}
+        loss_val, _ = tfs.run([loss, optimizer], feed_dict)
+        loss_epochs[epoch] = loss_val
+        
+        feed_dict = {x_tensor: X_test, y_tensor: y_test}
+        mse_score, rs_score = tfs.run([mse, rs], feed_dict)
+        mse_epochs[epoch] = mse_score
+        rs_epochs[epoch] = rs_score
+        
+        
+>>> print('For test data: MSE = {0:.8f}, R2 = {1:.8f}'.format(mse_score, rs_score))
+For test data: MSE = 32.89019012, R2 = 0.60246706
+```
+
+![MSE图](media/RR_Ridge_MSE.png)
+
+![R2图](media/RR_Ridge_R2.png)
+
+#### ElasticNet 正则
+
+修改ridge_param和ridge_loss，将loss变成L1 + L2即可。图与代码略
+
+### 使用逻辑回归进行分类
+
+逻辑回归是线性概率分类器，输入特征向量为某种特定分类的概率可以用下面的方程表达：
+$$
+P(Y=i|x,w,b) = \phi(z)
+$$
+其中：
+
+* Y是输出
+* i是一个分类
+* x是输入
+* w是权重
+* b是偏差
+* z是回归方程 $ z= w × x + b$
+* $\phi$ 是平滑函数或者模型
+
+所以方程13表达的是，当$w$和$b$给定时（用$\phi(z)$表达）$x$属于某个分类$i$的概率。这个模型需要用概率最大化的方式训练。
+
+#### 二值分类的逻辑回归
+
+对于二值分类，其模型函数定义为sigmoid函数：
+$$
+\phi(z)=\frac 1 {1 + e^{-z}} = \frac 1 {1 + e^{-(w×x+b)}}
+$$
+sigmoid函数的值介于[0, 1]之间，所以我们可以用$y=\phi(z)$来预测分类：如果$y$>0.5就属于1,否则输入0
+
+对于逻辑回归，我们需要最大化似然函数:$L(w) = P(y|x,w,b)$
+
+然而，最大化log似然会比较容易，所以我们使用对数似然$l(w)$作为成本函数。损失函数($J(w)$)因而可以写作$-l(w)$这样可以使用类似梯度下降优化算法将其最小化。
+
+二值逻辑回归的损失函数可以写作：
+$$
+J(w = -\sum_{i=1}^n[(y_i×log(\phi(z_i)))+((1-y_i)×(1-log(\phi(z_i))))])
+$$
+其中$\phi(z)$是sigmoid函数
+
+#### 多分类的逻辑回归
+
+多分类逻辑回归中，我们会使用非常流行的函数之一的softmax，而不是使用sigmoid。softmax可以表达为：
+$$
+softmax \phi_i(z)=\frac {e_i^z} {\sum_je_j^z}=\frac {e_j^{(w×x+b)}} {\sum_j {e_j^{(w×x+b)}}}
+$$
+softmax 函数会对每个分类输出概率，概率向量相加和为1.预测时，值最大的softmax分类会成为输出或者预测的分类。
+
+多分类逻辑回归的损失函数可以写作：
+$$
+J(w) = -\sum_{i=1}^n[y_i×log(\phi(z_i))]
+$$
+其中$\phi(z)$是softmax函数
+
+### 二分类
+
+我们使用便捷函数 SciKit中的make_classification()产生数据集，来进行二分类问题示例。
+
+```python
+import sklearn.datasets as skds
+X, y = skds.make_classification(n_samples=200, n_features=2, n_informative=2, n_redundant=0, n_repeated=0, n_classes=2, n_clusters_per_class=1)
+if (y.ndim==1):
+    y = y.reshape(-1, 1)
+```
+
+* n_samples 是生成数据点的数量。
+* n_features 是生成特征的数量。
+* n_classes是分类数量，2是就是二值分类问题
+
+看一下散点图：
+
+```python
+import matplotlib.pyplot as plt
+plt.scatter(X[:, 0], X[:, 1], marker='o', c=y.ravel()) # 这里需要把y 拉平成为1维，这样to_rgba才可以hash它。原书这里有错误
+plt.savefig('media/LR_BC_Scatter.png')
+```
+
+[详细解释可以参照这里](https://stackoverflow.com/questions/49840380/matplotlib-scatter-typeerror-unhashable-type-numpy-ndarray)
+
+![散点图](media/LR_BC_Scatter.png)
+
+我们可以使用numpy的eye函数将y转成one-hot编码：
+
+```python
+print(y[0:5])
+y = np.eye(num_outputs)[y]
+print(y[0:5])
+[[[1. 0.]]
+
+ [[0. 1.]]
+
+ [[0. 1.]]
+
+ [[0. 1.]]
+
+ [[0. 1.]]]
+```
+
+```python
+import sklearn.model_selection as skms
+X_train, X_test, y_train, y_test = skms.train_test_split(X, y, test_size=.4, random_state=42)
+```
+
+```python
+import tensorflow as tf
+
+num_outputs = y_train.shape[1]
+num_inputs = X_train.shape[1]
+
+learning_rate = 0.001
+
+x = tf.placeholder(dtype=tf.float32, shape=[None, num_inputs], name='x')
+y = tf.placeholder(dtype=tf.float32, shape=[None, num_outputs], name='y')
+
+w = tf.Variable(tf.zeros([num_inputs, num_outputs]), name='w')
+b = tf.Variable(tf.zeros([num_outputs]), name = 'b')
+
+model = tf.nn.sigmoid(tf.matmul(x, w)+b)
+
+loss = tf.reduce_mean(-tf.reduce_sum((y * tf.log(model)) + ((1-y) * tf.log(1-model)), axis=1))
+optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
+```
+
+```python
+num_epochs = 1
+with tf.Session() as tfs:
+    tf.global_variables_initializer().run()
+    for epoch in range(num_epochs):
+        tfs.run(optimizer, feed_dict={x: X_train, y: y_train})
+        print(epoch)
+        y_pred = tfs.run(tf.argmax(model, 1), feed_dict={x: X_test})
+        y_orig = tfs.run(tf.argmax(y, 1), feed_dict={y: y_test})
+        
+        preds_check = tf.equal(y_pred, y_orig)
+        accuracy_op = tf.reduce_mean(tf.cast(preds_check, tf.float32))
+        accuracy_score = tfs.run(accuracy_op)
+        
+        
+print("epoch {0:04d} accuracy={1:.8f}".format(epoch, accuracy_score))
+plt.figure(figsize=(14, 4))
+plt.subplot(1, 2, 1)
+plt.scatter(X_test[:, 0], X_test[:, 1], marker='o', c=y_orig)
+plt.title('Original')
+plt.subplot(1, 2, 2)
+plt.scatter(X_test[:, 0], X_test[:, 1], marker='o', c=y_pred)
+plt.title('Predicted')
+plt.savefig('media/LR_BC_predVsorig.png')
+```
+
+*这部分应该有问题*
+
+### 多类分类
+
+使用手写识别数据
+
+```python
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+num_outputs = 10
+num_inputs = 784
+
+learning_rate = 0.001
+num_epochs = 1
+batch_size = 100
+num_batches = int(mnist.train.num_examples/batch_size)
+```
+
+* num_outputs 是我们准备预测数字图片的数目，这里是10
+* num_inputs 当前图片是28×28像素，每个像素都是模型的输入。所以我们有784个输入
+* learning_rate 梯度下降优化算法的学习率
+* num_epochs 我们只运行一次，所以设为1
+* batch_size 现实中，我们数据集巨大时，不太可能一次全部加载。所以我们把数据分成随机选择的批次。一次可以输入100张图片。
+* num_batches 从数据集中要选择多少批次
+
+```python
+x = tf.placeholder(dtype=tf.float32, shape=[None, num_inputs], name='x')
+y = tf.placeholder(dtype=tf.float32, shape=[None, num_outputs], name='y')
+
+w = tf.Variable(tf.zeros([784, 10]), name='w')
+b = tf.Variable(tf.zeros([10]), name='b')
+model = tf.nn.softmax(tf.matmul(x, w)+b)
+
+loss = tf.reduce_mean(-tf.reduce_sum(y*tf.log(model), axis=1))
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(loss)
+```
+
+这里与二分类的差别在于使用softmax替换掉了sigmoid函数，softmax函数是sigmoid函数的生成器，将简单实数值的n维向量$z$转换成在[0, 1]区间取值的实值向量$\delta(z)$，其和为1。
+
+```python
+with tf.Session() as tfs:
+    tf.global_variables_initializer().run()
+    for epoch in range(num_epochs):
+        for batch in range(num_batches):
+            batch_x, batch_y = mnist.train.next_batch(batch_size)
+            tfs.run(optimizer, feed_dict={x: batch_x, y: batch_y})
+        predictions_check = tf.equal(tf.argmax(model, 1), tf.argmax(y, 1))
+        accuracy_function = tf.reduce_mean(tf.cast(predictions_check, tf.float32))
+        feed_dict = {x: mnist.test.images, y:mnist.test.labels}
+        accuracy_score = tfs.run(accuracy_function, feed_dict)
+>>> print("epoch {0:04d} accuracy={1:.8f}".format(epoch, accuracy_score))
+epoch 0000 accuracy=0.76139998
+```
+
+我们来尝试在多次迭代中训练模型，在每次迭代使用不同的批次。
+
+``` python
+def mnist_batch_func(batch_size=100):
+    batch_x, batch_y = mnist.train.next_batch(batch_size)
+    return [batch_x, batch_y]
+```
+
+```python
+def tensorflow_classification(num_epochs, num_batches, batch_size, batch_func, optimizer, test_x, test_y):
+    accuracy_epochs = np.empty(shape=[num_epochs], dtype=np.float32)
+    with tf.Session() as tfs:
+        tf.global_variables_initializer().run()
+        for epoch in range(num_epochs):
+            for batch in range(num_batches):
+                batch_x, batch_y = batch_func(batch_size)
+                feed_dict = {x: batch_x, y: batch_y}
+                tfs.run(optimizer, feed_dict)
+            predictions_check = tf.equal(tf.argmax(model, 1), tf.argmax(y, 1))
+            accuracy_function = tf.reduce_mean(tf.cast(predictions_check,tf.float32))
+            feed_dict = {x: test_x, y: test_y}
+            accuracy_score = tfs.run(accuracy_function, feed_dict)
+            accuracy_epochs[epoch] = accuracy_score
+            print("epoch {0:04d} accuracy={1:.8f}".format(epoch, accuracy_score))
+            
+    plt.figure(figsize=(14, 8))
+    plt.axis([0, num_epochs, np.min(accuracy_epochs), np.max(accuracy_epochs)])
+    plt.plot(accuracy_epochs, label='Acuuracy Score')
+    plt.title('Accuracy over Iterations')
+    plt.xlabel('# Epoch')
+    plt.ylabel('Accuracy Score')
+    plt.legend()
+    plt.savefig('media/LR_MC_Acc.png')
+```
+
+```python
+num_epochs = 30
+tensorflow_classification(num_epochs=num_epochs, num_batches=num_batches, batch_size=batch_size, batch_func=mnist_batch_func, optimizer=optimizer, test_x=mnist.test.images, test_y=mnist.test.labels)
+```
+
+![Acc图](media/LR_MC_Acc.png)
+
+## 使用 TensorFlow 和 Keras 实现神经网络和MLP
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
