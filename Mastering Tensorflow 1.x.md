@@ -1400,6 +1400,7 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1409,10 +1410,12 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
 
 
 
@@ -1842,6 +1845,157 @@ tensorflow_classification(num_epochs=num_epochs, num_batches=num_batches, batch_
 ![Acc图](media/LR_MC_Acc.png)
 
 ## 使用 TensorFlow 和 Keras 实现神经网络和MLP
+
+### 感知器
+
+```mermaid
+graph LR
+A((x1)) --input #1--> D((sigma))
+B((x2)) --input #2--> D((sigma))
+C((x3)) --input #3--> D((sigma))
+D((sigma)) --> |output|E((y))
+```
+
+上面的感知器很简单，无法在现实中应用。因此，通过给它增加权重、偏差和激活函数的概念可以使其增强。给每个输入都赋权并获得其加权和。如果其加权求和的值小于某个阈值那么输出0,否则输出1。
+$$
+y = \begin{cases}
+0 && \text if&\sum w_i x_i < threshold \\
+1 && \text if& \sum w_i x_i \geq threshold
+\end{cases}
+$$
+阈值也被称作偏差(bias)，我们把偏差移到左边记作 $b$ ，同时把 $\sum w_i x_i$ 用向量 $w$ $x$ 的点积表示：
+$$
+y = \begin{cases}
+0 && \text if & \sum w\cdot x + b \lt 0 \\
+1 && \text if & \sum w\cdot x +b \geq 0
+\end{cases}
+$$
+这时感知器看起来会是下面的样子：
+
+```mermaid
+graph LR
+a((x1)) --w1-->d((sigma))
+b((x2)) --w2-->d((sigma))
+c((x3)) --w3-->d((sigma))
+e((b)) --1-->d((sigma))
+d((sigma)) -->|output|f((y))
+
+```
+
+这时神经元是线性函数，为了使其可以输出非线性决策边界，可以通过使用非线性的激活或者转换函数产生总和。常用的有：
+
+* ReLU：修饰线性单元，将值平滑于$(0,x)$
+  $$
+  ReLU(x) = max(0, x)
+  $$
+
+* sigmoid: 将值平滑于(0, 1)
+  $$
+  sigmoid(x) = \frac 1 {1 + e^{-x}} = \frac {e^x} {1 + e^x}
+  $$
+
+* tanh： 双曲正切，将值平滑于(-1, 1)
+  $$
+  tanh(x) = \frac {e^x-e^{-x}} {e^x + e^{-x}}
+  $$
+
+
+使用这些激活函数，感知器的公式就变成：
+$$
+y = \varphi(w\cdot x+b)
+$$
+其中$\varphi(\cdot)$ 是激活函数
+
+这时，神经元看起来是这样的：
+
+```mermaid
+graph LR
+a((x1)) --w1-->d((sigma))
+b((x2)) --w2-->d((sigma))
+c((x3)) --w3-->d((sigma))
+e((b)) --1-->d((sigma))
+d((sigma))-->f((active func))
+f-->|output|g((y))
+```
+
+### 多层感知器
+
+当我们基于明确定义的结构，把人工神经元连接起来，就可以将其称为神经网络。下面是只有一个神经元的最简单的神经网络：
+
+```mermaid
+graph LR
+i((xi)) --> m((x))
+m-->c((sum))
+c-->a((active func))
+a-->|output|o((y))
+b((b)) -->c
+w((wi)) --> m
+```
+
+上图中，除去xi和y，就是一个神经元$\varphi(w\cdot x+b)$
+
+一层的输出变成另一层的输入，直到最终层输出为最终结果，这样一层层连起来。这样的神经网络被称为前馈神经网络(feed forward neural networks FFNN)。因为这些FFNNs由多层神经元连接在一起，他们也被成为多层感知器(MultiLayer Perceptrons MLP)或者深度神经网络(Deep neural networks DNN)。
+
+MLP如下图展示：两隐藏层，每层5个神经元，一个输出。神经元与下一个层的神经元完全连接。这种层也叫密集层或者仿射层，这种模型也叫做顺序模型。
+
+```mermaid
+graph TB
+i1((x1)) --> h11((phi11))
+i2((x2)) --> h12((phi12))
+i3((x3)) --> h13((phi13))
+i1 --> h14((phi14))
+i1 --> h15((phi15))
+i2 --> h11
+i2 --> h13
+i2 --> h14
+i2 --> h15
+i3 --> h11
+i3 --> h12
+i3 --> h14
+i3 --> h15
+h11 --> h21((phi21))
+h11 --> h22((phi22))
+h11 --> h23((phi23))
+h11 --> h24((phi24))
+h11 --> h25((phi25))
+h12 --> h21
+h12 --> h22
+h12 --> h23
+h12 --> h24
+h12 --> h25
+h13 --> h21
+h13 --> h22
+h13 --> h23
+h13 --> h24
+h13 --> h25
+h14 --> h21
+h14 --> h22
+h14 --> h23
+h14 --> h24
+h14 --> h25
+h15 --> h21
+h15 --> h22
+h15 --> h23
+h15 --> h24
+h15 --> h25
+h21 --> o((y))
+h22 --> o
+h23 --> o
+h24 --> o
+h25 --> o
+```
+
+### MLP做图像分类
+
+#### 基于TensorFlow MLP的MNIST分类
+
+
+
+
+
+
+
+
 
 
 
