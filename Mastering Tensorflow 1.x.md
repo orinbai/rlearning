@@ -1401,6 +1401,7 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1411,10 +1412,12 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
 
 
 
@@ -1900,6 +1903,7 @@ d((sigma)) -->|output|f((y))
   $$
 
 
+
 使用这些激活函数，感知器的公式就变成：
 $$
 y = \varphi(w\cdot x+b)
@@ -1925,11 +1929,13 @@ f-->|output|g((y))
 ```mermaid
 graph LR
 i((xi)) --> m((x))
+subgraph Neuron
 m-->c((sum))
 c-->a((active func))
-a-->|output|o((y))
 b((b)) -->c
 w((wi)) --> m
+end
+a-->|output|o((y))
 ```
 
 上图中，除去xi和y，就是一个神经元$\varphi(w\cdot x+b)$
@@ -1939,7 +1945,7 @@ w((wi)) --> m
 MLP如下图展示：两隐藏层，每层5个神经元，一个输出。神经元与下一个层的神经元完全连接。这种层也叫密集层或者仿射层，这种模型也叫做顺序模型。
 
 ```mermaid
-graph TB
+graph TD
 i1((x1)) --> h11((phi11))
 i2((x2)) --> h12((phi12))
 i3((x3)) --> h13((phi13))
