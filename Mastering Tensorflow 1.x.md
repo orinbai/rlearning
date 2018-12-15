@@ -1,4 +1,5 @@
 ---
+
 typora-copy-images-to: media
 ---
 
@@ -1402,6 +1403,9 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
+
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1413,10 +1417,16 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
+
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
+
+
 
 
 
@@ -1904,6 +1914,9 @@ d((sigma)) -->|output|f((y))
 
 
 
+
+
+
 使用这些激活函数，感知器的公式就变成：
 $$
 y = \varphi(w\cdot x+b)
@@ -1995,11 +2008,197 @@ h25 --> o
 
 #### 基于TensorFlow MLP的MNIST分类
 
+```python
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
+X_train = mnist.train.images
+X_test = mnist.test.images
+Y_train = mnist.train.labels
+Y_test = mnist.test.labels
 
+num_outputs = 10
+num_inputs = 784
+```
 
+如果MNIST下载有问题，可以从[下载源](http://yann.lecun.com/exdb/mnist/) 下载4个gz文件到指定目录，**注意**不要压缩
 
+```python
+def mlp(x, num_inputs, num_outputs, num_layers, num_neurons):
+    w = []
+    b = []
+    for i in range(num_layers):
+        w.append(tf.Variable(tf.random_normal(
+        [num_inputs if i == 0 else num_neurons[i-1],
+         num_neurons[i]]),
+         name='w_{0:04d}'.format(i)
+        ))
+        b.append(tf.Variable(tf.random_normal([num_neurons[i]]), name='b_{0:04d}'.format(i)))
+    w.append(tf.Variable(tf.random_normal([num_neurons[num_layers-1] if num_layers>0 else num_inputs, num_outputs], name='w_out')))
+    b.append(tf.Variable(tf.random_normal([num_outputs], name='b_out')))
+    
+    layer = x
+    for i in range(num_layers):
+        layer = tf.nn.relu(tf.matmul(layer, w[i]) + b[i])
+        
+    layer = tf.matmul(layer, w[num_layers]) + b[num_layers]
+    
+    return layer
+```
 
+mlp函数中 w、b 实际是定义了所有各层的初始 $w_i、b_i$，而layer参数实际上是定义了类似的计算链，所以看不到有tf.placeholder。这也会与将来keras定义的MLP不同。
+
+这里的mlp()并不提供训练，当然也就更没有提供预测的功能了。
+
+```python
+def mnist_batch(batch_size=100):
+    X_batch, Y_batch = mnist.train.next_batch(batch_size)
+    return [X_batch, Y_batch]
+```
+
+其实，这个例子中，我们可以直接使用内置函数。但是，大多数情况下，还是需要自己写的。
+
+```python
+def tensorflow_classification(n_epochs, n_batches, batch_size, batch_func, model, optimizer, loss, accuracy_function, X_test, Y_test):
+    with tf.Session() as tfs:
+        tfs.run(tf.global_variables_initializer())
+        for epoch in range(n_epochs):
+            epoch_loss = 0.0
+            for batch in range(n_batches):
+                X_batch, Y_batch = batch_func(batch_size)
+                feed_dict = {x: X_batch, y: Y_batch}
+                _, batch_loss = tfs.run([optimizer, loss], feed_dict)
+                epoch_loss += batch_loss
+                
+            average_loss = epoch_loss/n_batches
+            print("epoch: {0:04d} loss = {1:0.6f}".format(epoch, average_loss))
+        feed_dict = {x: X_test, y: Y_test}
+        accuracy_score = tfs.run(accuracy_function, feed_dict=feed_dict)
+        print("accuracy = {0:.8f}".format(accuracy_score))
+```
+
+首先tfs.run是可以接受list作为输入的，返回应该是按照list进行返回。由于我们不需要optimizer的返回，所以只保留了loss。
+
+```python
+x = tf.placeholder(dtype=tf.float32, name='x', shape=[None, num_inputs])
+y = tf.placeholder(dtype=tf.float32, name='y', shape=[None, num_outputs])
+
+num_layers = 0
+num_neurons = []
+learning_rate = 0.001
+n_epochs = 50
+batch_size = 100
+n_batches = int(mnist.train.num_examples/batch_size)
+```
+
+先不要隐藏层，所以num_layers为0, num_neurons也就为空。
+
+```python
+model = mlp(x=x, num_inputs=num_inputs, num_outputs=num_outputs, num_layers=num_layers, num_neurons=num_neurons)
+loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=model, labels=y))
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(loss)
+predictions_check = tf.equal(tf.argmax(model, 1), tf.argmax(y, 1))
+accuracy_function = tf.reduce_mean(tf.cast(predictions_check, tf.float32))
+```
+
+这里使用了一个新的损失函数tf.nn.softmax_cross_entropy_with_logits，使用这个函数需要确认：输出反刻度化(unscaled)并且还没有被传过softmax激活函数。函数内部使用softmax来刻度化输出。
+
+当输出属于一个分类且仅属于一个分类时，可以使用熵。
+
+更多请看[官网](https://www.tensorflow.org/api_docs/python/tf/nn/softmax_cross_entropy_with_logits)
+
+```python
+tensorflow_classification(n_epochs=n_epochs,
+                         n_batches=n_batches,
+                          batch_size=batch_size,
+                          batch_func=mnist_batch,
+                          model=model,
+                          optimizer=optimizer,
+                          loss=loss,
+                          accuracy_function=accuracy_function,
+                          X_test=mnist.test.images,
+                          Y_test=mnist.test.labels
+                         )
+```
+
+```python
+2018-12-16 03:57:59.007357: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1306] Adding visible gpu devices: 0
+2018-12-16 03:57:59.096793: I tensorflow/core/common_runtime/gpu/gpu_device.cc:987] Creating TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 49 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1050 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1)
+epoch: 0000 loss = 12.871349
+epoch: 0001 loss = 11.070906
+epoch: 0002 loss = 9.771772
+epoch: 0003 loss = 8.744032
+epoch: 0004 loss = 7.920924
+epoch: 0005 loss = 7.246265
+epoch: 0006 loss = 6.682478
+epoch: 0007 loss = 6.202067
+epoch: 0008 loss = 5.784522
+epoch: 0009 loss = 5.417481
+epoch: 0010 loss = 5.093632
+epoch: 0011 loss = 4.808071
+epoch: 0012 loss = 4.556156
+epoch: 0013 loss = 4.333460
+epoch: 0014 loss = 4.135884
+epoch: 0015 loss = 3.959662
+epoch: 0016 loss = 3.801621
+epoch: 0017 loss = 3.659026
+epoch: 0018 loss = 3.529670
+epoch: 0019 loss = 3.411686
+epoch: 0020 loss = 3.303605
+epoch: 0021 loss = 3.204126
+epoch: 0022 loss = 3.112177
+epoch: 0023 loss = 3.026906
+epoch: 0024 loss = 2.947562
+epoch: 0025 loss = 2.873518
+epoch: 0026 loss = 2.804221
+epoch: 0027 loss = 2.739241
+epoch: 0028 loss = 2.678118
+epoch: 0029 loss = 2.620538
+epoch: 0030 loss = 2.566148
+epoch: 0031 loss = 2.514712
+epoch: 0032 loss = 2.465969
+epoch: 0033 loss = 2.419716
+epoch: 0034 loss = 2.375757
+epoch: 0035 loss = 2.333903
+epoch: 0036 loss = 2.294027
+epoch: 0037 loss = 2.255975
+epoch: 0038 loss = 2.219622
+epoch: 0039 loss = 2.184844
+epoch: 0040 loss = 2.151548
+epoch: 0041 loss = 2.119638
+epoch: 0042 loss = 2.089034
+epoch: 0043 loss = 2.059640
+epoch: 0044 loss = 2.031406
+epoch: 0045 loss = 2.004242
+epoch: 0046 loss = 1.978099
+epoch: 0047 loss = 1.952908
+epoch: 0048 loss = 1.928636
+epoch: 0049 loss = 1.905224
+accuracy = 0.66420001
+```
+
+修改超参数
+
+```python
+num_layers = 2
+num_neurons = [64, 64]
+```
+
+结果
+
+```python
+accuracy = 0.82959998
+```
+
+| Number of Layers | Number of Neurons in Each Hidden Layers | Accuracy |
+| ---------------- | --------------------------------------- | -------- |
+| 0                | 0                                       | 0.6642   |
+| 2                | 64                                      | 0.8296   |
+| 2                | 256                                     | 0.9246   |
+
+#### 基于Keras MLP的MNIST分类
+
+ 
 
 
 
