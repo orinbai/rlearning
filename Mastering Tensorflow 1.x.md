@@ -1406,6 +1406,7 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1420,10 +1421,12 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
 
 
 
@@ -1917,6 +1920,7 @@ d((sigma)) -->|output|f((y))
 
 
 
+
 使用这些激活函数，感知器的公式就变成：
 $$
 y = \varphi(w\cdot x+b)
@@ -2198,7 +2202,105 @@ accuracy = 0.82959998
 
 #### 基于Keras MLP的MNIST分类
 
- 
+```python
+import keras
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import SGD
+```
+
+```python
+num_layers = 2
+num_neurons = []
+for i in range(num_layers):
+    num_neurons.append(256)
+
+num_outputs = 10
+num_inputs = 784
+
+learning_rate = 0.01
+n_epochs = 50
+batch_size = 100
+
+model = Sequential()
+model.add(Dense(units=num_neurons[0], activation='relu', input_shape=(num_inputs,)))
+model.add(Dense(units=num_neurons[1], activation='relu'))
+model.add(Dense(units=num_outputs, activation='softmax'))
+model.compile(loss='categorical_crossentropy', optimizer=SGD(lr=learning_rate), metrics=['accuracy'])
+model.summary()
+```
+
+
+
+```python
+model.fit(X_train, Y_train, batch_size=batch_size, epochs=n_epochs)
+score = model.evaluate(X_test, Y_test)
+print('\n Test loss:', score[0])
+print('Test Accuracy:', score[1])
+Test loss: 0.0907243746465072
+Test Accuracy: 0.9726
+```
+
+### MLP用于时间序列回归
+
+[数据来源](https://datamarket.com/data/set/22u3/international-airline-passengers-monthly-totals-in-thousands-jan-49-dec-60#!ds=22u3&display=line)
+
+```python
+import pandas as pd
+from sklearn import model_selection as dsu
+from datasetslib.timeseries import TimeSeriesDataset as tsd
+filename = 'international-airline-passengers.csv'
+dataframe = pd.read_csv(filename, usecols=[1], header=0)
+dataset = dataframe.values
+dataset = dataset.astype('float32')
+mm = tsd(dataframe)
+mm.train_test_split(dataframe, train_size=0.67)
+```
+
+对于时间序列回归，我们要将数据集进行转换来构建监督数据集。当前例子里，我们使用2步时间推迟。n_x是2,mvts_to_xy函数返回输入和输出（X和Y）训练和测试集，其中X有{t-1, t}时间的两列值，Y是{t+1}时间的值在一列。学习算法假设t+1时的值可以通过寻找在{t-1, t, t+1}之中的关联来学习到。
+
+```python
+n_x = 2
+n_y = 1
+X_train, Y_train, X_test, Y_test = mm.mvts_to_xy(n_x=n_x, n_y=n_y)
+```
+
+datasetslib 有修改，所以这部分无法继续。
+
+## 使用TensorFlow 和 Keras 实现RNN
+
+在涉及数据序列顺序的问题中，比如时间序列预测和自然语言处理，背景信息对于预测输出是非常有价值的。这些问题的背景可以通过提取整个序列而不是单个最后数据点来确定。因而，前一个输出会成为当前输入的一部分，如此循环，最后一个输出会是之前所有输入和最后一个输入一起的结果。递归神经网络（RNN）架构是设计这种序列机器学习问题的一种解决方案。
+
+递归神经网络是一种解决序列数据的特定神经网络架构。
+
+标准神经网络的假设之一就是输入数据通过某种方式整理，一个输入与其他的输入没有关系。然而对于时间序列和文本数据，这个假设并不成立。
+
+本章，我们会设计一下RNN主题：
+
+* 简单递归神经网络
+* RNN变体
+* 长短期记忆网络
+* 门递归单元网络
+* TensorFlow RNN
+* Keras RNN
+* 使用Keras RNN解决MNIST
+
+### 简单递归神经网络
+
+```mermaid
+graph LR
+a((xt)) --> b((N))
+subgraph Rnn
+b --> b
+end
+b --> c(yt)
+```
+
+$$
+N = \varphi(w^{(x)}\cdot x_t + w^{(y)}\cdot y_{t-1} + b)
+$$
+
+
 
 
 
