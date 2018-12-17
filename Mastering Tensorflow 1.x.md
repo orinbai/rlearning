@@ -1407,6 +1407,7 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1422,10 +1423,12 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
 
 
 
@@ -1921,6 +1924,7 @@ d((sigma)) -->|output|f((y))
 
 
 
+
 使用这些激活函数，感知器的公式就变成：
 $$
 y = \varphi(w\cdot x+b)
@@ -2300,11 +2304,64 @@ $$
 N = \varphi(w^{(x)}\cdot x_t + w^{(y)}\cdot y_{t-1} + b)
 $$
 
+在这个图中，神经网络N接受输入$x_t$ 产生输出$y_t$ 。由于循环，下一个时间步骤$t+1$ ，使用$y_t$ 和输入$x_{t+1}$ 来产生$y_{t+1}$ 。在数学上，我们使用：
+$$
+y_t = \varphi(w^{(x)}\cdot x_t + w^{(y)}\cdot y_{t-1} + b)
+$$
+当我们展开循环，RNN架构在$t$ 时刻看起来像是这样：
 
+```mermaid
+graph LR
+a((y0)) --> b((phi w,b))
+b --> c((y1))
+d((x1)) -->b
 
+```
 
+随着时间的推移，第五步时循环展开：
 
+```mermaid
+graph LR
+a0((y0)) --> n1((phi w,b))
+n1 --> a1((y1))
+a1 -->n2((phi w,b))
+n2 --> a2((y2))
+a2 --> n3((phi w,b))
+n3 --> a3((y3))
+a3 --> n4((phi w,b))
+n4 --> a4((y4))
+a4 --> n5((phi w,b))
+n5 --> a5((y5))
+b1((x1)) --> n1
+b2((x2)) --> n2
+b3((x3)) --> n3
+b4((x4)) --> n4
+b5((x5)) --> n5
+```
 
+在每一步，使用相同的学习函数$\varphi(\cdot)$ ，相同的参数 $w$ 和 $b$ 。
+
+输出$y$ 并不是每一步都会产生。而是，每次都产生输出 $h$ 作为替代，同时对于 $h$ 应用另外一个激活函数来生成 $y$ 。这样RNN的公式就是这样的：
+$$
+h_t = \varphi(w^{(hx)}\cdot x_t + w^{(hh)}\cdot h_{t-1} + b^{(h)}) \\
+y_t = \varphi(w^{(yh)}\cdot h_t + b^{(y)})
+$$
+其中：
+
+* $w^{(hx)}$ 是连接到隐藏层的输入 $x$ 的权重向量
+* $w^{(hh)}$ 是前一步时 $h$ 的值的权重向量
+* $w^{(yh)}$ 是连接隐藏层和输出层的层的权重向量
+* $h_t$ 的函数通常会使用非线性函数，比如ReLU
+
+在RNN中，每步都使用相同的参数( $w^{(hx)}$ , $w^{(hh)}$, $w^{(yh)}$, $b^{(h)}$, $b^{(y)}$)。极大的减少了序列模型需要学习的参数量。
+
+假设只在第五步计算$y$ ，RNN循环展开如下图：
+
+![RNN](media/Screenshot from 2018-12-18 03-09-05.png)
+
+  
+
+ 
 
 
 
