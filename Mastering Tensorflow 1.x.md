@@ -2357,7 +2357,7 @@ $$
 
 假设只在第五步计算$y$ ，RNN循环展开如下图：
 
-![RNN](media/Screenshot from 2018-12-18 03-09-05.png)
+![RNN](media/RNN5.png)
 
   
 
