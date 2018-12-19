@@ -1410,6 +1410,8 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1428,10 +1430,14 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
+
 
 
 
@@ -1933,6 +1939,8 @@ d((sigma)) -->|output|f((y))
 
 
 
+
+
 使用这些激活函数，感知器的公式就变成：
 $$
 y = \varphi(w\cdot x+b)
@@ -2388,9 +2396,14 @@ LSTM有两种记忆：
 * 工作记忆记作$h$ （隐藏状态）
 * 长期记忆记作$c$ （网格状态）
 
+网格状态或者长期记忆从一个网格到另一个网格的流只受两个线性函数的交互影响。LSTM通过门为长期记忆增加或者删除信息。
 
+![LSTM Cell](media/LSTM.Cell.Detail.png)
 
+LSTM各门的内部流：
 
+* 遗忘门（记住门）$f()$ ：$h_{t-1}$ 和 $x$ 作为$f()$ 也就是公式$f(\cdot)=\delta(w^{(fx)}\cdot x + w^{(fh)}\cdot h_{t-1} + b^{(f)})$ 的输入。遗忘门函数会决定忘记哪些信息以及记住哪些信息。使用sigmoid激活函数，输出为1时，信息传递到网格的下一步，为0时可选择的忘记。
+* 输入门（保存门）$i()$ ：$h_{t-1}$ 和 $x_t$ 依据公式 $i(\cdot) = \delta(w^{(ix)}\cdot x + w^{(ih)}\cdot h_{t-1} + b^{(i)})$ 输入$i()$ 门。输入门函数决定了保存还是丢弃输入。输入函数也允许网格学习保留或抛弃候选记忆的哪部分。 
 
 
 
