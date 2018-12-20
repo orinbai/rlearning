@@ -1412,6 +1412,7 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1432,10 +1433,12 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
 
 
 
@@ -1941,6 +1944,7 @@ d((sigma)) -->|output|f((y))
 
 
 
+
 使用这些激活函数，感知器的公式就变成：
 $$
 y = \varphi(w\cdot x+b)
@@ -2403,7 +2407,152 @@ LSTM有两种记忆：
 LSTM各门的内部流：
 
 * 遗忘门（记住门）$f()$ ：$h_{t-1}$ 和 $x$ 作为$f()$ 也就是公式$f(\cdot)=\delta(w^{(fx)}\cdot x + w^{(fh)}\cdot h_{t-1} + b^{(f)})$ 的输入。遗忘门函数会决定忘记哪些信息以及记住哪些信息。使用sigmoid激活函数，输出为1时，信息传递到网格的下一步，为0时可选择的忘记。
+
 * 输入门（保存门）$i()$ ：$h_{t-1}$ 和 $x_t$ 依据公式 $i(\cdot) = \delta(w^{(ix)}\cdot x + w^{(ih)}\cdot h_{t-1} + b^{(i)})$ 输入$i()$ 门。输入门函数决定了保存还是丢弃输入。输入函数也允许网格学习保留或抛弃候选记忆的哪部分。 
+
+* 候选长期记忆：候选长期记忆使用激活函数计算$h_{t-1}$ 和 $x_t$ ，大多使用$tanh$ ，也就是公式：$\tilde c(\cdot) = tanh(w^{(\tilde cx)} \cdot x_t + w^{(\tilde c h)}\cdot h_{t-1} + b^{(\tilde c)})$
+
+* 下一步，之前的三个计算会被合并更新长期记忆，记为$c_t$ 也就是下面的公式：
+  $$
+  c_t = c_{t-1}\times f(\cdot) + i(\cdot) \times \tilde c(\cdot)
+  $$
+
+* 输出o()（关注/焦点门）：$h_{t-1}$ 和 $x_t$ 作为o()的输入：$o(\cdot) = \sigma(w^{(ox)} \cdot x_t + w^{(oh)} \cdot h_{t-1} + b^{(o)})$ 输出门函数决定更新工作记忆的信息量。
+
+* 下一步，工作记忆$h_t$ 将根据一下公式由长期记忆$c_t$ 和 焦点/关注向量根据下面公式更新：$h_t = \varphi(c_t) \times o(\cdot)$ 其中$\varphi(\cdot)$是激活函数，一般用tanh
+
+### GRU网络
+
+LSTM网络计算任务很中，因而，研究者发现了几乎等小的RNNs配置，被称作Gated Recurrent Unit(GRU)架构。
+
+GRU中只使用一种记忆，而不是使用工作记忆和长期记忆，表示为$h$ （隐藏状态）。GRU网格通过重置和更新门增加或者减少这个状态记忆。
+
+下面是GRU网格的图示：
+
+![GRU Cell](media/GRU.Cell.png)
+
+GRU网格中穿过门的内部流如下：
+
+* Update gate u()：输入$h_{t-1}$ 和 $x_t$ 流入如下公式的u()门：$u(\cdot) = \sigma(w^{(ux)}\cdot x_t + w^{(uh)}\cdot h_{t-1} + b^{(u)})$
+* Reset gate r()：输入$h_{t-1}$ 和 $x_t$ 流入如下公式的r()门：$r(\cdot) = \sigma(w^{(rx)} \cdot x_t + w^{(rh)}\cdot h_{t-1} + b^{(r)})$
+* 候选状态记忆：候选长期记忆是通过r()门输出、$h_{t-1}$和 $x_t$ 计算的，公式如下：$\tilde h(\cdot) = tanh(w^{(\tilde hx)}\cdot x_t + w^{(\tilde hh)}\cdot h_{t-1} + b^{(\tilde h)})$
+* 下一步上述三个计算被组合来获得更新状态记忆，记作 $h_t$，公式如下：$h_t = (u_t\cdot \tilde h_t) + ((1 - u_t)\cdot h_{t-1})$
+
+### RNN TensorFlow
+
+用底层Tensorflow库创建RNN模型的工作流与MLP几乎一致：
+
+1. 创建输入输出的shape（None, #TImeSteps，#Feature）或者（Batch Size，#TimeSteps，#Features）的占位符
+2. 通过输入占位符，创建长度的列表
+3. 通过tf.rnn.rnn_cell模块创建想要的RNN类型的网格
+4. 使用前面创建的网格和张量列表，创建静态或者动态的RNN
+5. 创建输出的权重和偏差变量，定义损失和优化函数
+6. 在需要的迭代周期中，通过损失和优化函数训练模型。
+
+#### TensorFlow RNN 网格类
+
+tf.nn.rnn_cell模块包含以下类，可以在TensorFlow中创建不同种类的网格：
+
+| Class         | 描述                                                         |
+| ------------- | ------------------------------------------------------------ |
+| BasicRNNCell  | 简单RNN网格                                                  |
+| BasicLSTMCell | 简单LSTM RNN网格，基于[论文](http://arxiv.org/abs/1409.2329) |
+| LSTMCell      | LSTM RNN网格，[链接1](http://deeplearning.cs.cmu.edu/pdfs/Hochreiter97_lstm.pdf) [链接2](https://research.goolge.com/pubs/archive/43905.pdf) |
+| GRUCell       | GRU RNN网格，[链接](http://arxiv.org/abs/1406.1078)          |
+| MultiRNNCell  | 顺序链接的简单网格组成的RNN网格                              |
+
+tf.contrib.rnn 模块提供以下更多的类以在TensorFlow中创建不同的网格：
+
+| Class              | 描述                                                      |
+| ------------------ | --------------------------------------------------------- |
+| LSTMBlockCell      | LSTM RNN网格块 [链接](http://arxiv.org/abs/1409.2329)     |
+| LSTMBlockFusedCell | LSTM RNN网格融合块 [链接](http://arxiv.org/abs/1409.2329) |
+| GLSTMCell          | LSTM网格组 [链接](https://arxiv.org/abs/1703.10722)       |
+| ……                 |                                                           |
+
+#### TensorFlow RNN 模型构建类
+
+#### TensorFlow RNN 网格包类
+
+### Keras RNN
+
+TensorFlow直接创建RNN是在太麻烦了，直接看Keras的吧。keras.layers.recurrent提供三种RNN：SimpleRNN、LSTM、GRU
+
+有状态的模型
+
+在创建RNN时将stateful参数设置为True，这样就可以创建有状态的RNN。对于有状态的模型，指定输入的批次大小必须是固定值。在有状态模型中，某批次学习得到的隐藏状态可以在下个批次使用。如果想在训练过程的某个点重置记忆，可以调用model.reset_states()或者layer。reset_states()。
+
+### RNN应用的领域
+
+* 自然语言模型
+* 声音和演讲识别
+* 图片/视频描述或者字幕生成
+* 时间序列数据
+
+### MNIST data 应用 Keras RNN
+
+如果将图片视为时间序列，那么也可以使用RNN。比如，MNIST中的图片是28×28，可以将高和宽视为时间步和特征，这样就变成了28个时间步和每个时间步中的28个特征。
+
+```python
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Activation
+from keras.layers.recurrent import SimpleRNN
+from keras.optimizers import RMSprop
+from keras.optimizers import SGD
+```
+
+将MNIST数据从1D 784像素转成28×28 2D的像素点
+
+```python
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+X_train = mnist.train.images
+X_test = mnist.test.images
+Y_train = mnist.train.labels
+Y_test = mnist.test.labels
+n_classes = 10
+X_train = X_train.reshape(-1, 28, 28)
+X_test = X_test.reshape(-1, 28, 28)
+```
+
+用Keras创建简单RNN
+
+```python
+model = Sequential()
+model.add(SimpleRNN(units=16, activation='relu', input_shape=(28, 28)))
+model.add(Dense(n_classes))
+model.add(Activation('softmax'))
+
+model.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=0.01), metrics=['accuracy'])
+model.summary()
+```
+
+测试准确度评估
+
+```python
+model.fit(X_train, Y_train, batch_size=100, epochs=20)
+score = model.evaluate(X_test, Y_test)
+print("\nTest Loss:",score[0])
+print("Test accuracy:",socre[1])
+
+Test Loss: 0.5654167017221451
+Test accuracy: 0.8229
+```
+
+## TensorFlow 和 Keras RNN用于时间序列数据
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
