@@ -1413,6 +1413,7 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * 岭回归，也被成为L2正则，岭参数乘以权重的平方和，其损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2+\alpha\frac 1 n\sum_{i=1}^nw_i^2
@@ -1434,10 +1435,12 @@ plt.savefig('media/ML_R2_2.png')
 
 
 
+
 * ElasticNet 回归，同时增加L1和L2，损失函数为：
   $$
   \frac 1 n\sum_{i=1}^n(y_i-\hat y_i)^2 + \alpha_1\frac 1 n \sum_{i=1}^n|w_i|^2 + \alpha_2\frac 1 n\sum_{i=1}^nw_i^2
   $$
+
 
 
 
@@ -1932,6 +1935,7 @@ d((sigma)) -->|output|f((y))
   $$
   tanh(x) = \frac {e^x-e^{-x}} {e^x + e^{-x}}
   $$
+
 
 
 
@@ -2541,6 +2545,37 @@ Test accuracy: 0.8229
 ```
 
 ## TensorFlow 和 Keras RNN用于时间序列数据
+
+### 载入航线旅客数据集
+
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+dataframe = pd.read_csv('../datasets/international-airline-passengers.csv', header=0)
+dataset = dataframe.values
+dataset = dataset.astype(np.float32)
+```
+
+从[这里](https://datamarket.com/data/set/22u3/international-airline-passengers-monthly-totals-in-thousands-jan-49-dec-60)下载的数据集，但是跟书里的不太一样，多了一列日期，所以dataset.astype会报错
+
+### 空客数据集可视化
+
+```python
+plt.plot(dataset, label='Original Data')
+plt.legend()
+plt.figsave('media/RNN.AC.png')
+```
+
+![AC](media/RNN.AC.png)
+
+### 为TensorFlow RNN预处理数据集
+
+```python
+import sklearn.preprocessing as skpp
+scaler = skpp.MinMaxScaler(feature_range=(0,1))
+normalized_dataset = scaler.fit_transform(dataset[:, 1].astype(np.float32).reshape(-1, 1))
+```
 
 
 
